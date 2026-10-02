@@ -1,0 +1,5 @@
+package-as: WarbankAudit
+
+ignore:
+  - .github
+  - SPEC.md
