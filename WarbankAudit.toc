@@ -1,0 +1,14 @@
+## Interface: 120100
+## Title: Warbank Audit
+## Notes: Audit your warband bank, bank, and bags. Rank everything by usefulness, draw the line, clean house.
+## Author: vocino
+## Version: 0.1.0
+## SavedVariables: WarbankAuditDB
+## OptionalDeps: Baganator, Syndicator, TradeSkillMaster, Auctionator
+
+main.lua
+config.lua
+providers.lua
+scanner.lua
+ranking.lua
+ui.lua
