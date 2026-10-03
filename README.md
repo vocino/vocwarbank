@@ -1,38 +1,47 @@
-# warbank audit
+# Warbank Audit
 
-problem
-every expansion leaves junk in your warbank: old reagents, dead quest
-items, gear with no purpose. you either eyeball hundreds of slots or
-never clean at all.
+Every expansion leaves junk in your warbank: old reagents, dead
+quest items, gear with no purpose. Warbank Audit scans your warband
+bank, bank, or bags, ranks everything by usefulness, and lets you
+draw the line — everything below it gets vendored, disenchanted,
+mailed, or trashed. You confirm every action; it never sells or
+destroys anything on its own.
 
-how to install
-copy the folder into `interface/addons` and rename it to `WarbankAudit`.
-curseforge and wago packages come later.
+## Installation
 
-how to use
+Copy the folder into `Interface/AddOns` and rename it to
+`WarbankAudit` (the folder name must match the `.toc` file).
+CurseForge and Wago packages are coming later.
+
+## Usage
+
 ```
 /ww
 ```
-pick a scope (warbank, bank, bags), look at the ranked list, drag the
-line to where your comfort level is, review the dry-run summary, hit
-go. everything below the line gets vendored, disenchanted, mailed, or
-trashed.
 
-what it does
-- scans your warbank, bank, or bags
-- ranks every item by usefulness: uncollected appearances and
-  equipment sets stay, current-expansion mats stay, everything else
-  gets a verdict (sell, disenchant, vendor, trash, destroy)
-- never auto-sells or auto-destroys. you confirm every action.
-- plugs into baganator, tsm, or auctionator for better data when you
-  have them. works fine without them.
+Pick a scope (warbank, bank, bags), look at the ranked list, drag
+the line to where your comfort level is, review the dry-run summary,
+hit go. Uncollected appearances and equipment sets stay,
+current-expansion mats stay, everything else gets a verdict: sell,
+disenchant, vendor, trash, or destroy.
 
-what's inside
+## How it works
+
+Two layers: providers fetch the data behind one contract, and the UI
+never talks to third-party addons directly. The builtin provider
+always works; Baganator, TSM, or Auctionator plug in for better
+expansion and price data when you have them.
+
+## What's inside
+
 - `main.lua`: boot, slash command
 - `config.lua`: settings, never-sell lists
-- `providers.lua`: data layer. one contract, builtin fallback plus
-  optional baganator/tsm/auctionator providers
+- `providers.lua`: data layer behind one contract
 - `scanner.lua`: container-agnostic item scan
 - `ranking.lua`: the verdict rules
 - `ui.lua`: the triage window
 - `SPEC.md`: the full spec
+
+## License
+
+MIT

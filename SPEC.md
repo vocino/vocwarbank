@@ -25,7 +25,7 @@ eyeball hundreds of slots or never clean at all.
 - No auto-sell, no auto-destroy. The user confirms every action.
 - No website, no backend, no account. Pure client addon.
 
-## v1 scope
+## V1 Scope
 
 - The scanner is container-agnostic from day one. Scope picker:
   warband bank, character bank, bags, or all three at once.
