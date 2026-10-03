@@ -90,7 +90,7 @@ the verdict.
 4. On the never-sell list -> KEEP
 5. On the always-sell list -> SELL (valued) or VENDOR
 6. Openable container -> USE
-7. Housing decor not yet collected -> USE
+7. Uncollected collectable (decor, pet, mount, toy) -> USE
 8. Bind-on-equip gear, market value above threshold
    -> SELL (auction house)
 9. Old-expansion uncommon or rare gear -> DISENCHANT (epics keep
@@ -177,5 +177,5 @@ or on the slash line.
 - CurseForge and Wago publishing: after v1 works, not before.
 - Decor owned-count semantics need in-game verification (bag items
   vs storage counts).
-- Toy/mount/pet uncollected -> USE needs verified is-toy and
-  collected-state gates.
+- Toy rule needs in-game confirmation that GetToyInfo covers
+  uncollected toys.

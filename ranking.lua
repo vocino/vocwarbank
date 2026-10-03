@@ -96,21 +96,55 @@ rules[#rules + 1] = function(item, data, ctx)
   if item.openable then return "use", "openable" end
 end
 
--- 7. Housing decor not yet collected -> use. Only a definitive "is
--- decor, owns zero" routes here; anything unknown falls through. Extra
--- copies of owned decor fall through to the normal rules.
+-- Definitive-false collectable checks. Each returns true only on a
+-- proven "is one, owns zero"; anything else (not one, unknown, API
+-- missing or erroring) returns false and the item falls through.
+local function uncollectedDecor(itemID)
+  if not (C_Item and C_Item.IsDecorItem) then return false end
+  local ok, isDecor = pcall(C_Item.IsDecorItem, itemID)
+  if not ok or isDecor ~= true then return false end
+  local cat = C_HousingCatalog
+  if not (cat and cat.GetCatalogEntryInfoByItem) then return false end
+  local okEntry, info = pcall(cat.GetCatalogEntryInfoByItem, itemID)
+  if not okEntry or type(info) ~= "table" then return false end
+  return (info.totalNumStored or 0) + (info.totalNumPlaced or 0)
+    + (info.remainingRedeemable or 0) == 0
+end
+
+local function uncollectedPet(itemID)
+  local pj = C_PetJournal
+  if not (pj and pj.GetPetInfoByItemID and pj.GetNumCollectedInfo) then return false end
+  local ok, speciesID = pcall(function() return select(13, pj.GetPetInfoByItemID(itemID)) end)
+  if not ok or speciesID == nil then return false end
+  local okCount, owned = pcall(pj.GetNumCollectedInfo, speciesID)
+  return (okCount and owned == 0) or false
+end
+
+local function uncollectedMount(itemID)
+  local mj = C_MountJournal
+  if not (mj and mj.GetMountFromItem and mj.GetMountInfoByID) then return false end
+  local ok, mountID = pcall(mj.GetMountFromItem, itemID)
+  if not ok or mountID == nil then return false end
+  local okInfo, collected = pcall(function() return select(11, mj.GetMountInfoByID(mountID)) end)
+  return (okInfo and collected == false) or false
+end
+
+local function uncollectedToy(itemID)
+  local tb = C_ToyBox
+  if not (tb and tb.GetToyInfo and PlayerHasToy) then return false end
+  local ok, toyID = pcall(tb.GetToyInfo, itemID)
+  if not ok or toyID == nil then return false end
+  return PlayerHasToy(itemID) == false
+end
+
+-- 7. Uncollected collectable (decor, pet, mount, toy) -> use. Extra
+-- copies of owned collectables fall through to the normal rules.
 rules[#rules + 1] = function(item, data, ctx)
   if not item.itemID then return nil end
-  if not (C_Item and C_Item.IsDecorItem) then return nil end
-  local ok, isDecor = pcall(C_Item.IsDecorItem, item.itemID)
-  if not ok or isDecor ~= true then return nil end
-  local cat = C_HousingCatalog
-  if not (cat and cat.GetCatalogEntryInfoByItem) then return nil end
-  local okEntry, info = pcall(cat.GetCatalogEntryInfoByItem, item.itemID)
-  if not okEntry or type(info) ~= "table" then return nil end
-  local owned = (info.totalNumStored or 0) + (info.totalNumPlaced or 0)
-    + (info.remainingRedeemable or 0)
-  if owned == 0 then return "use", "uncollected decor" end
+  if uncollectedDecor(item.itemID) then return "use", "uncollected decor" end
+  if uncollectedPet(item.itemID) then return "use", "uncollected pet" end
+  if uncollectedMount(item.itemID) then return "use", "uncollected mount" end
+  if uncollectedToy(item.itemID) then return "use", "uncollected toy" end
 end
 
 -- 8. Bind-on-equip gear, market value above threshold -> sell.
