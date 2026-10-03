@@ -103,13 +103,49 @@ function ui.computeQueue(flat, cutoff)
 end
 
 -- Window state ------------------------------------------------------------
-local window, headerStats, headerSource, scroll, child, line
+local window, headerStats, headerSource, scroll, child, line, closeBtn, lineBar
 local footer, footerGroups
 local rowPool, headPool, buttons = {}, {}, {}
 local lastRanked, lastFlat = {}, {}
 local lastQueued, lastTotals = {}, { items = 0, slots = 0, gold = 0, groups = {} }
 local cutoff = 0 -- leading flat entries above the line; the rest is queued
 local merchantOpen = false
+local skin = nil -- EllesmereUI facade, set if the suite skins us
+
+local function skinRow(S, r)
+  S.SquareIcon(r.icon, r.frame)
+  S.Font(r.name)
+  S.Font(r.count)
+  S.Font(r.value)
+  S.Font(r.reason)
+end
+
+local function applySkin(S)
+  skin = S
+  S.Shell(window)
+  S.CloseButton(closeBtn)
+  local sbName = scroll:GetName() and scroll:GetName() .. "ScrollBar" or nil
+  local sb = sbName and _G[sbName] or nil
+  if sb then S.ScrollBar(sb) end
+  for _, key in ipairs({ "vendor", "disenchant", "sell", "trash" }) do
+    S.Button(buttons[key])
+    S.StateButtonLabel(buttons[key])
+  end
+  S.Font(headerStats)
+  S.Font(headerSource)
+  S.Font(footer)
+  S.Font(footerGroups)
+  for i = 1, #headPool do S.Font(headPool[i]) end
+  for i = 1, #rowPool do skinRow(S, rowPool[i]) end
+  if S.GetAccentColor then
+    local function paintLine()
+      local rr, gg, bb = S.GetAccentColor()
+      lineBar:SetColorTexture(rr, gg, bb, 0.9)
+    end
+    paintLine()
+    if S.OnLooksChanged then S.OnLooksChanged(paintLine) end
+  end
+end
 
 local function verdictLabel(v) return VERDICT_LABEL[v] or v end
 
@@ -139,6 +175,7 @@ local function getRow(i)
   reason:SetJustifyH("LEFT")
   r = { frame = f, icon = icon, name = nm, count = count, value = value, reason = reason }
   rowPool[i] = r
+  if skin then skinRow(skin, r) end
   return r
 end
 
@@ -357,14 +394,14 @@ function ui.init()
   window:Hide()
   if UISpecialFrames then table.insert(UISpecialFrames, "WarbankAuditWindow") end
   window.TitleText:SetText("Warbank Audit")
-  local close = CreateFrame("Button", nil, window, "UIPanelCloseButton")
-  close:SetPoint("TOPRIGHT", window, "TOPRIGHT", -4, -4)
-  close:SetScript("OnClick", function() window:Hide() end)
+  closeBtn = CreateFrame("Button", nil, window, "UIPanelCloseButton")
+  closeBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -4, -4)
+  closeBtn:SetScript("OnClick", function() window:Hide() end)
   headerStats = window:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   headerStats:SetPoint("TOPLEFT", window, "TOPLEFT", 16, -30)
   headerSource = window:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   headerSource:SetPoint("TOPRIGHT", window, "TOPRIGHT", -44, -30)
-  scroll = CreateFrame("ScrollFrame", nil, window, "UIPanelScrollFrameTemplate")
+  scroll = CreateFrame("ScrollFrame", "WarbankAuditScroll", window, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", window, "TOPLEFT", 12, -52)
   scroll:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -30, 86)
   child = CreateFrame("Frame", nil, scroll)
@@ -373,9 +410,9 @@ function ui.init()
   scroll:SetScrollChild(child)
   line = CreateFrame("Button", nil, child)
   line:SetHeight(LINE_H)
-  local bar = line:CreateTexture(nil, "OVERLAY")
-  bar:SetAllPoints()
-  bar:SetColorTexture(1, 0.82, 0, 0.9)
+  lineBar = line:CreateTexture(nil, "OVERLAY")
+  lineBar:SetAllPoints()
+  lineBar:SetColorTexture(1, 0.82, 0, 0.9)
   line:SetScript("OnMouseDown", function(self) self:SetScript("OnUpdate", trackLine) end)
   line:SetScript("OnMouseUp", function(self) self:SetScript("OnUpdate", nil) end)
   footer = window:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -415,6 +452,9 @@ function ui.init()
     merchantOpen = (event == "MERCHANT_SHOW")
     if window:IsShown() then updateTexts() end
   end)
+  if EllesmereUI and EllesmereUI.RegisterSkin then
+    EllesmereUI.RegisterSkin("WarbankAudit", applySkin)
+  end
 end
 
 function ui.toggle()

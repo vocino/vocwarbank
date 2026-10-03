@@ -6,7 +6,7 @@
 ## Category: Bags & Inventory
 ## IconTexture: Interface\Icons\INV_Misc_Coin_01
 ## SavedVariables: WarbankAuditDB
-## OptionalDeps: Baganator, Syndicator, TradeSkillMaster, Auctionator
+## OptionalDeps: Baganator, Syndicator, TradeSkillMaster, Auctionator, EllesmereUI
 ## X-Website: https://github.com/vocino/warbank-audit
 ## X-License: MIT
 ## X-Curse-Project-ID: 1724546
