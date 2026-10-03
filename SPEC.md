@@ -39,20 +39,23 @@ eyeball hundreds of slots or never clean at all.
 Two layers. The UI never talks to third-party addons directly.
 
 ```
-WarbandWarden/
-  Core/        ranking, verdicts, actions
-  Data/        providers behind one contract
-  UI/          the triage window
+WarbankAudit/
+  main.lua      boot, slash command
+  config.lua    settings, never-sell lists
+  providers.lua data layer behind one contract (Data)
+  scanner.lua   container-agnostic item scan
+  ranking.lua   verdict rules (Core)
+  ui.lua        the triage window (UI)
 ```
 
 ### Provider contract
 
 ```lua
 -- expansion key like "tww", "midnight", or nil if unknown
-Provider:GetExpansion(itemID) -> string | nil
+Provider.GetExpansion(itemID) -> string | nil
 
 -- market value in copper, or nil if unknown
-Provider:GetMarketValue(itemLink) -> number | nil
+Provider.GetMarketValue(itemLink) -> number | nil
 ```
 
 ### Providers
