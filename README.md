@@ -25,6 +25,10 @@ hit go. Uncollected appearances and equipment sets stay,
 current-expansion mats stay, everything else gets a verdict: sell,
 disenchant, vendor, trash, or destroy.
 
+Tune it with `/ww source <auto|builtin|baganator>`, `/ww scope
+<warbank|bank|bags|all>`, `/ww threshold <gold>`, and `/ww enchanter
+<name>`.
+
 ## How it works
 
 Two layers: providers fetch the data behind one contract, and the UI
