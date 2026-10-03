@@ -69,6 +69,19 @@ local function makeField(y, label, get, set)
   return -56
 end
 
+local function makeCheckbox(y, label, get, set)
+  local box = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+  box:SetSize(24, 24)
+  box:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
+  local text = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  text:SetPoint("LEFT", box, "RIGHT", 4, 0)
+  text:SetText(label)
+  box:SetChecked(get())
+  box:SetScript("OnClick", function(self) set(self:GetChecked()) end)
+  refreshers[#refreshers + 1] = function() box:SetChecked(get()) end
+  return -32
+end
+
 function settings.init()
   if panel then return end
   panel = CreateFrame("Frame")
@@ -94,6 +107,12 @@ function settings.init()
       local g = tonumber(v)
       if g and g > 0 then ns.config.set("ahThreshold", math.floor(g * 10000)) end
     end)
+  y = y + makeCheckbox(y, "Open automatically at vendors",
+    function() return ns.config.get("autoOpenVendor") end,
+    function(v) ns.config.set("autoOpenVendor", v) end)
+  y = y + makeCheckbox(y, "Open automatically at the auction house",
+    function() return ns.config.get("autoOpenAuction") end,
+    function(v) ns.config.set("autoOpenAuction", v) end)
   local note = panel:CreateFontString(nil, "ARTWORK", "GameFontDisable")
   note:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
   note:SetWidth(400)

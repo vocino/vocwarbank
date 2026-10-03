@@ -19,7 +19,8 @@ end)
 local function help()
   print("Warbank Audit: /ww [source <auto|vendor|auctionator|tsm|oribos>] [theme]"
     .. " [inventory <auto|blizzard|syndicator>] [scope <warbank|bank|bags|all>]"
-    .. " [threshold <gold>] [enchanter <name>] [never|always|unnever|unalways <item>] [config]")
+    .. " [threshold <gold>] [enchanter <name>] [never|always|unnever|unalways <item>]"
+    .. " [auto <vendor|auction> <on|off>] [config]")
 end
 
 local priceSources = { auto = true, vendor = true, auctionator = true, tsm = true, oribos = true }
@@ -32,6 +33,22 @@ SlashCmdList.WARBANKAUDIT = function(msg)
   cmd = cmd:lower()
   if cmd == "" then
     ns.ui.toggle()
+  elseif cmd == "auto" then
+    local which, val = rest:match("^(%S+)%s*(%S*)%s*$")
+    which, val = (which or ""):lower(), (val or ""):lower()
+    local key = (which == "vendor" or which == "vendors" or which == "merchant") and "autoOpenVendor"
+      or ((which == "auction" or which == "ah" or which == "auctionhouse") and "autoOpenAuction" or nil)
+    if rest == "" then
+      print("Warbank Audit: auto-open at vendors is "
+        .. (ns.config.get("autoOpenVendor") and "ON" or "off")
+        .. ", at the auction house " .. (ns.config.get("autoOpenAuction") and "ON" or "off") .. ".")
+    elseif key and (val == "on" or val == "off") then
+      ns.config.set(key, val == "on")
+      print("Warbank Audit: auto-open " .. (key == "autoOpenVendor" and "at vendors" or "at the auction house")
+        .. " " .. (val == "on" and "enabled." or "disabled."))
+    else
+      print("Warbank Audit: /ww auto <vendor|auction> <on|off>")
+    end
   elseif cmd == "config" then
     ns.settings.open()
   elseif cmd == "theme" then

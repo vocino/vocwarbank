@@ -89,13 +89,15 @@ the verdict.
 3. Current-expansion consumable, reagent, or trade good -> KEEP
 4. On the never-sell list -> KEEP
 5. On the always-sell list -> SELL (valued) or VENDOR
-6. Bind-on-equip gear, market value above threshold
+6. Openable container -> USE
+7. Housing decor not yet collected -> USE
+8. Bind-on-equip gear, market value above threshold
    -> SELL (auction house)
-7. Old-expansion uncommon or rare gear -> DISENCHANT (epics keep
+9. Old-expansion uncommon or rare gear -> DISENCHANT (epics keep
    buyback through VENDOR instead)
-8. Quest item -> KEEP (log check is future work)
-9. Has a vendor price -> VENDOR
-10. Anything else -> KEEP ("needs review"; never destroy by default)
+10. Quest item -> KEEP (log check is future work)
+11. Has a vendor price -> VENDOR
+12. Anything else -> KEEP ("needs review"; never destroy by default)
 
 ## The window
 
@@ -138,6 +140,7 @@ theme` reports the live look, the EUI toggles, and any skin error.
 
 ## Actions
 
+- Use: consumes one-click items from bags (open caches, collect decor).
 - Vendor: sells at a merchant, keeps buyback intact.
 - Disenchant: on an enchanter; otherwise prepares mail to the
   enchanter named in settings.
@@ -154,6 +157,8 @@ or on the slash line.
 - Warbank source: Auto / Syndicator / Blizzard API.
 - TSM price key (default DBMarket), enchanter name, auction threshold.
 - Never/always-sell lists via /ww never|always <item>.
+- Auto-open at vendors / the auction house (both off by default).
+  The window docks beside the merchant or AH frame when it auto-opens.
 
 ## Build notes
 
@@ -170,3 +175,7 @@ or on the slash line.
 - TSM/Auctionator/Oribos calls need in-game verification (no local installs).
 - Blizzard C_Bank path for warbank (Syndicator covers it meanwhile).
 - CurseForge and Wago publishing: after v1 works, not before.
+- Decor owned-count semantics need in-game verification (bag items
+  vs storage counts).
+- Toy/mount/pet uncollected -> USE needs verified is-toy and
+  collected-state gates.

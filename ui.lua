@@ -9,18 +9,19 @@ local HEAD_H = 20
 
 local ACTIONABLE = {
   sell = true, disenchant = true, vendor = true,
-  trash = true, destroy = true,
+  trash = true, destroy = true, use = true,
 }
 
 local VERDICT_LABEL = {
   keep = "Keep", sell = "Sell", disenchant = "Disenchant",
-  vendor = "Vendor", trash = "Trash", destroy = "Destroy",
+  vendor = "Vendor", trash = "Trash", destroy = "Destroy", use = "Use",
 }
 
 local VERDICT_COLOR = {
   keep = { 0.1, 0.9, 0.1 }, sell = { 1, 0.85, 0 },
   disenchant = { 0.2, 0.6, 1 }, vendor = { 0.7, 0.7, 0.7 },
   trash = { 1, 0.4, 0.1 }, destroy = { 0.7, 0.1, 0.1 },
+  use = { 0.75, 0.5, 1 },
 }
 
 local QUALITY_COLOR = {
@@ -48,7 +49,7 @@ local EXP_ORDER = {
 
 local TAB_WIDTH = {
   all = 44, keep = 56, sell = 48, disenchant = 88,
-  vendor = 62, trash = 56, destroy = 66,
+  vendor = 62, trash = 56, destroy = 66, use = 48,
 }
 
 -- Pure helpers. Public so macros and tests can reuse them. ---------------
@@ -248,11 +249,12 @@ local function updateTexts()
   local sel = "Selected: " .. t.items .. " items, " .. t.slots .. " slots, ~" .. ui.formatGold(t.gold)
   if lastKeeps > 0 then sel = sel .. " (+" .. lastKeeps .. " keeps)" end
   footer:SetText(sel)
-  footerGroups:SetText("sell " .. (g.sell or 0) .. "  •  disenchant " .. (g.disenchant or 0)
+  footerGroups:SetText("use " .. (g.use or 0) .. "  •  sell " .. (g.sell or 0) .. "  •  disenchant " .. (g.disenchant or 0)
     .. "  •  vendor " .. (g.vendor or 0) .. "  •  trash " .. ((g.trash or 0) + (g.destroy or 0)))
-  setButton(buttons.vendor, "Vendor", g.vendor or 0, merchantOpen)
-  setButton(buttons.disenchant, "Disenchant", g.disenchant or 0, true)
+  setButton(buttons.use, "Use", g.use or 0, true)
   setButton(buttons.sell, "Sell", g.sell or 0, true)
+  setButton(buttons.disenchant, "Disenchant", g.disenchant or 0, true)
+  setButton(buttons.vendor, "Vendor", g.vendor or 0, merchantOpen)
   setButton(buttons.trash, "Trash", (g.trash or 0) + (g.destroy or 0), true)
 end
 
@@ -348,6 +350,34 @@ local function selectedWhere(pred)
     if selected[ui.entryKey(entry)] and pred(entry) then out[#out + 1] = entry end
   end
   return out
+end
+
+-- Use consumes one-click collectables (caches, uncollected decor) from
+-- bags. Equippables never route here, but if a future rule slips one in,
+-- skip it: using would bind it.
+function ui.useQueued(list)
+  local n, skipped, equippable = 0, 0, 0
+  list = list or selectedWhere(function(e) return e.verdict == "use" end)
+  for _, entry in ipairs(list) do
+    local item = entry.item
+    local detail = entry.detail or {}
+    if (detail.classID == 2 or detail.classID == 4) and detail.equipLoc ~= nil and detail.equipLoc ~= "" then
+      equippable = equippable + 1
+    elseif item.scope == "bags" and type(item.bag) == "number" and type(item.slot) == "number" then
+      C_Container.UseContainerItem(item.bag, item.slot)
+      n = n + 1
+    else
+      skipped = skipped + 1
+    end
+  end
+  if equippable > 0 then
+    print("Warbank Audit: skipped " .. equippable .. " equippable items (using would bind them).")
+  end
+  if skipped > 0 then
+    print("Warbank Audit: skipped " .. skipped .. " items outside bags (not supported yet).")
+  end
+  ui.rescan()
+  return n
 end
 
 function ui.vendorQueued(list)
@@ -474,6 +504,46 @@ function ui.clearSelection()
   render(lastRanked)
 end
 
+-- Auto-open docking. When the window pops itself up beside the merchant
+-- or auction house, it docks top-aligned to whichever side has room and
+-- clamps vertically so it never runs off screen. An unusable anchor (no
+-- frame, too narrow a screen) leaves the position alone and reports
+-- false; the window still opens.
+local AUTO_GAP, AUTO_MARGIN = 8, 20
+
+local function anchorBeside(frame)
+  if not (window and frame and frame.IsShown and frame:IsShown()) then return false end
+  local screenW = UIParent and UIParent:GetWidth() or 1920
+  local screenH = UIParent and UIParent:GetHeight() or 1080
+  local w, h = window:GetSize()
+  local left, right, top = frame:GetLeft(), frame:GetRight(), frame:GetTop()
+  if not (w and h and left and right and top) then return false end
+  local y = 0
+  if top > screenH - AUTO_MARGIN then y = (screenH - AUTO_MARGIN) - top end
+  if top + y - h < AUTO_MARGIN then y = AUTO_MARGIN + h - top end
+  local point, relPoint, x
+  if right + AUTO_GAP + w <= screenW then
+    point, relPoint, x = "TOPLEFT", "TOPRIGHT", AUTO_GAP
+  elseif left - AUTO_GAP - w >= 0 then
+    point, relPoint, x = "TOPRIGHT", "TOPLEFT", -AUTO_GAP
+  else
+    return false
+  end
+  window:ClearAllPoints()
+  window:SetPoint(point, frame, relPoint, x, y)
+  return true
+end
+
+-- Pop the window up for a merchant/AH visit. Never repositions an
+-- already-open window. Returns nil when nothing was opened.
+local function autoShow(frame)
+  if window and window:IsShown() then return nil end
+  ui.rescan()
+  local docked = anchorBeside(frame)
+  window:Show()
+  return docked
+end
+
 function ui.rescan()
   if not window then ui.init() end
   selected = {}
@@ -552,10 +622,11 @@ function ui.init()
   footerGroups:SetWidth(620)
   footerGroups:SetJustifyH("LEFT")
   local defs = {
-    { "vendor", 16, function() ui.vendorQueued() end },
-    { "disenchant", 134, function() ui.disenchantQueued() end },
-    { "sell", 252, function() ui.sellQueued() end },
-    { "trash", 370, function() confirmTrash() end },
+    { "use", 16, function() ui.useQueued() end },
+    { "sell", 134, function() ui.sellQueued() end },
+    { "disenchant", 252, function() ui.disenchantQueued() end },
+    { "vendor", 370, function() ui.vendorQueued() end },
+    { "trash", 488, function() confirmTrash() end },
   }
   for _, def in ipairs(defs) do
     local b = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
@@ -577,8 +648,28 @@ function ui.init()
   local ctx = CreateFrame("Frame")
   ctx:RegisterEvent("MERCHANT_SHOW")
   ctx:RegisterEvent("MERCHANT_CLOSED")
+  ctx:RegisterEvent("AUCTION_HOUSE_SHOW")
   ctx:SetScript("OnEvent", function(_, event)
-    merchantOpen = (event == "MERCHANT_SHOW")
+    if event == "MERCHANT_SHOW" then
+      merchantOpen = true
+      if ns.config.get("autoOpenVendor") then autoShow(MerchantFrame) end
+    elseif event == "MERCHANT_CLOSED" then
+      merchantOpen = false
+    elseif event == "AUCTION_HOUSE_SHOW" then
+      -- The AH frame loads on demand, so a missed dock gets one delayed
+      -- retry, skipped if the user moved the window meanwhile.
+      if ns.config.get("autoOpenAuction") then
+        if autoShow(AuctionHouseFrame) == false and C_Timer and C_Timer.After then
+          local left, top = window:GetLeft(), window:GetTop()
+          C_Timer.After(0.25, function()
+            if window and window:IsShown()
+                and window:GetLeft() == left and window:GetTop() == top then
+              anchorBeside(AuctionHouseFrame)
+            end
+          end)
+        end
+      end
+    end
     if window:IsShown() then updateTexts() end
   end)
   ns.theme.init({

@@ -11,6 +11,8 @@ local defaults = {
   neverSell = {},            -- itemID -> true
   alwaysSell = {},           -- itemID -> true
   scope = "bags",            -- warbank | bank | bags | all
+  autoOpenVendor = false,    -- pop up beside the merchant window
+  autoOpenAuction = false,   -- pop up beside the auction house
 }
 
 function config.init()

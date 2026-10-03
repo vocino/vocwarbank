@@ -3,7 +3,7 @@ local scanner = {}
 ns.scanner = scanner
 
 -- container-agnostic. every scope yields item records:
---   { link, itemID, count, bag, slot, scope }
+--   { link, itemID, count, bag, slot, scope, openable }
 -- warbank records from Syndicator carry no bag/slot (view-only).
 
 local function scanBags(out)
@@ -15,6 +15,7 @@ local function scanBags(out)
         out[#out + 1] = {
           link = link, itemID = tonumber(link:match("item:(%d+)")),
           count = info and info.stackCount or 1,
+          openable = info and info.hasLoot or nil,
           bag = bag, slot = slot, scope = "bags",
         }
       end

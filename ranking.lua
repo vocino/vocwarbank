@@ -3,7 +3,7 @@ local ranking = {}
 ns.ranking = ranking
 
 ranking.verdictOrder = {
-  "keep", "sell", "disenchant", "vendor", "trash", "destroy",
+  "keep", "use", "sell", "disenchant", "vendor", "trash", "destroy",
 }
 
 -- C_Item.GetItemInfo return positions.
@@ -90,7 +90,30 @@ rules[#rules + 1] = function(item, data, ctx)
   end
 end
 
--- 6. Bind-on-equip gear, market value above threshold -> sell.
+-- 6. Openable container (cache, lockbox, gift) -> use. Contents
+-- can't be triaged until the box is opened.
+rules[#rules + 1] = function(item, data, ctx)
+  if item.openable then return "use", "openable" end
+end
+
+-- 7. Housing decor not yet collected -> use. Only a definitive "is
+-- decor, owns zero" routes here; anything unknown falls through. Extra
+-- copies of owned decor fall through to the normal rules.
+rules[#rules + 1] = function(item, data, ctx)
+  if not item.itemID then return nil end
+  if not (C_Item and C_Item.IsDecorItem) then return nil end
+  local ok, isDecor = pcall(C_Item.IsDecorItem, item.itemID)
+  if not ok or isDecor ~= true then return nil end
+  local cat = C_HousingCatalog
+  if not (cat and cat.GetCatalogEntryInfoByItem) then return nil end
+  local okEntry, info = pcall(cat.GetCatalogEntryInfoByItem, item.itemID)
+  if not okEntry or type(info) ~= "table" then return nil end
+  local owned = (info.totalNumStored or 0) + (info.totalNumPlaced or 0)
+    + (info.remainingRedeemable or 0)
+  if owned == 0 then return "use", "uncollected decor" end
+end
+
+-- 8. Bind-on-equip gear, market value above threshold -> sell.
 -- Any expansion: a priced current BoE should list, not vendor.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
@@ -100,7 +123,7 @@ rules[#rules + 1] = function(item, data, ctx)
   if price and price > ns.config.get("ahThreshold") then return "sell", "worth listing" end
 end
 
--- 7. Old-expansion uncommon/rare gear -> disenchant. Epics fall through
+-- 9. Old-expansion uncommon/rare gear -> disenchant. Epics fall through
 -- to vendor so buyback stays available; greens/blues are safe to break.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
@@ -110,7 +133,7 @@ rules[#rules + 1] = function(item, data, ctx)
   return "disenchant", "disenchantable"
 end
 
--- 8. Quest item -> keep. Trashing dead quest items needs a quest-log
+-- 10. Quest item -> keep. Trashing dead quest items needs a quest-log
 -- lookup (TODO); until then these stay out of harm's way.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
@@ -119,12 +142,12 @@ rules[#rules + 1] = function(item, data, ctx)
   end
 end
 
--- 9. Has a vendor price -> vendor
+-- 11. Has a vendor price -> vendor
 rules[#rules + 1] = function(item, data, ctx)
   if data and data.sellPrice and data.sellPrice > 0 then return "vendor", "vendor price" end
 end
 
--- 10. Anything else -> keep. Destroy-by-default deleted Hearthstones;
+-- 12. Anything else -> keep. Destroy-by-default deleted Hearthstones;
 -- unclassified items wait for review instead.
 function ranking.rank(items)
   local ctx = {
