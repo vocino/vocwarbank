@@ -178,6 +178,7 @@ local function getIcon(i)
   level:SetPoint("TOPLEFT", f, "TOPLEFT", 2, -1)
   r = { button = f, sel = sel, bg = bg, icon = icon, dot = dot,
     count = count, level = level, key = nil, entry = nil }
+  f.Icon, f.Dot, f.Sel = icon, dot, sel -- named so the EUI tile fade can keep them
   f:SetScript("OnClick", function() ui.toggleKey(r.key) end)
   f:SetScript("OnEnter", function(self)
     local entry = r.entry
@@ -583,6 +584,7 @@ function ui.init()
   ns.theme.init({
     window = window, close = closeBtn, scroll = scroll,
     title = window.TitleText, headPool = headPool, iconPool = iconPool,
+    scrollBar = scroll.ScrollBar,
     texts = { headerStats, headerSource, footer, footerGroups, emptyNote },
     repaint = function()
       for i = 1, #iconPool do

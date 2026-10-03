@@ -114,7 +114,9 @@ One window, three looks, picked live by theme.lua:
 
 - EllesmereUI present (and skinning us): the suite's own textured
   shell through its public facade — Shell, Panel, Inset, Button,
-  SquareIcon, ScrollBar, Font/White — so it matches by
+  SquareIcon in follow-mode off a hidden quality ring per tile,
+  and a replicated house thumb strip on our legacy scrollbar (the
+  engine only skins modern bars) — matching by construction,
   construction, including the Modern flat variant.
 - Baganator loaded and running its Dark skin: a faithful
   replication of Skins/Dark.lua — same backdrop assets
@@ -130,7 +132,9 @@ EllesmereUI wins when both are present (Baganator itself
 auto-enables its EllesmereUI skin then, so all three match).
 Quality and verdict colors stay ours in every look — they are
 data, not chrome. Looks re-resolve on every scan; EUI is sticky
-until reload by the suite's own design.
+until reload by the suite's own design. A failed look falls back
+to stock, says so once in chat, and retries on the next scan; `/ww
+theme` reports the live look, the EUI toggles, and any skin error.
 
 ## Actions
 

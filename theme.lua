@@ -48,6 +48,9 @@ local STRIP_KEYS = {
 local refs = nil
 local eui = nil -- facade handle, set when the suite skins us
 local current = "default"
+local skinError = nil
+local errorPrinted = {}
+local euiLegacyStrip -- forward: applyEllesmere runs before its definition
 
 function theme.current() return current end
 
@@ -195,7 +198,17 @@ end
 
 function theme.styleIcon(r)
   if current == "ellesmere" and eui then
-    eui.SquareIcon(r.icon, r.button)
+    if not r.button.IconBorder then
+      -- Follow-mode reads quality back off the button's ring (shown,
+      -- vertex-colored; the packs alpha theirs to 0 the same way).
+      -- Our buttons have no Blizzard ring, so we carry the color on
+      -- a hidden texture of our own under the exact field name.
+      local ring = r.button:CreateTexture(nil, "OVERLAY")
+      ring:SetAlpha(0)
+      r.button.IconBorder = ring
+    end
+    eui.Button(r.button, { "Icon", "Sel", "Dot", "IconBorder" })
+    eui.SquareIcon(r.icon, r.button, true)
     eui.Font(r.count)
     eui.Font(r.level)
   elseif current == "baganator" then
@@ -215,10 +228,24 @@ function theme.styleHeader(r)
   end
 end
 
--- Icon paint hook. Quality and verdict stay OUR data in every theme:
--- EUI has no rarity-border primitive in its facade, and Baganator colors
--- its own borders by quality too, so both keep the cue.
+-- Icon paint hook. Quality and verdict stay visible in every theme:
+-- EUI reads it off a hidden ring, Baganator off its border texture,
+-- stock falls back to the quality plate.
 function theme.paintIcon(r, quality, qcolor)
+  if current == "ellesmere" and eui then
+    local c = (ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality])
+      or { r = qcolor[1], g = qcolor[2], b = qcolor[3] }
+    local ring = r.button.IconBorder
+    if ring then
+      ring:SetVertexColor(c.r, c.g, c.b, 1)
+      ring:Show()
+    end
+    -- The rarity border carries quality now; the plate stands down.
+    r.bg:Hide()
+    if r.bgrBorder then r.bgrBorder:Hide() end
+    eui.SquareIcon(r.icon, r.button, true)
+    return
+  end
   if current == "baganator" then
     r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     r.bg:SetColorTexture(0, 0, 0, 0.3) -- SlotBackground
@@ -233,6 +260,11 @@ function theme.paintIcon(r, quality, qcolor)
     r.bgrBorder:Show()
   else
     if current == "default" then r.icon:SetTexCoord(0, 1, 0, 1) end
+    -- Restore anything EUI stood down: the fallback path can land
+    -- here after a failed EUI apply, and retries must repaint clean.
+    r.bg:SetAlpha(1)
+    r.bg:Show()
+    if r.button.IconBorder then r.button.IconBorder:Hide() end
     r.bg:SetColorTexture(qcolor[1], qcolor[2], qcolor[3], 1)
     if r.bgrBorder then r.bgrBorder:Hide() end
   end
@@ -244,9 +276,11 @@ local function applyEllesmere()
   if refs.window.Inset then S.Inset(refs.window.Inset) end
   S.Panel(refs.scroll)
   S.CloseButton(refs.close)
-  local sbName = refs.scroll:GetName() and refs.scroll:GetName() .. "ScrollBar" or nil
-  local sb = sbName and _G[sbName] or nil
-  if sb then S.ScrollBar(sb) end
+  local sb = refs.scrollBar
+  -- Shape dispatch: modern bars through the engine, legacy Slider
+  -- bars stripped to the house look by hand (see euiLegacyStrip).
+  if sb and sb.Track then S.ScrollBar(sb)
+  elseif sb and sb.ThumbTexture then euiLegacyStrip(sb) end
   for _, rec in ipairs(refs.buttons) do
     S.Button(rec.b)
     if rec.label then S.StateButtonLabel(rec.b) end
@@ -274,15 +308,47 @@ local function clearBaganator()
   end
 end
 
+-- The engine skins modern (Track/Thumb) bars only, and ours is the
+-- legacy Slider bar (up/down steppers, knob thumb). Same house recipe
+-- on our shape: steppers gone, thumb a 4px white 0.3 strip that the
+-- Slider keeps positioning for us. Not called through S: marking the
+-- bar skinned with nothing painted would poison a future engine pass.
+function euiLegacyStrip(sb)
+  if sb.ScrollUpButton and sb.ScrollUpButton.Hide then sb.ScrollUpButton:Hide() end
+  if sb.ScrollDownButton and sb.ScrollDownButton.Hide then sb.ScrollDownButton:Hide() end
+  local thumb = sb.ThumbTexture
+  if thumb and thumb.SetColorTexture then
+    if thumb.SetTexture then thumb:SetTexture("") end
+    thumb:SetColorTexture(1, 1, 1, 0.3)
+    if thumb.SetSize then thumb:SetSize(4, 24) end
+  end
+end
+
 local function apply(style)
   if style == current then return end
-  if current == "baganator" then clearBaganator() end
+  if current == "baganator" then
+    clearBaganator()
+  end
   -- EUI visuals are reload-bound by the suite's own design (their
   -- facade has no un-apply), so ellesmere never needs clearing here:
   -- leaving it always goes through a reload, which re-decides.
   current = style
-  if style == "ellesmere" then applyEllesmere()
-  elseif style == "baganator" then applyBaganator() end
+  local ok, err = xpcall(function()
+    if style == "ellesmere" then applyEllesmere()
+    elseif style == "baganator" then applyBaganator() end
+  end, function(e) return e end)
+  if not ok then
+    -- Fall back to stock, stay retryable: decide() runs on every
+    -- scan, so a transient failure heals and a systematic one shows
+    -- here instead of wedging the look forever. Loud once, because a
+    -- silently unskinned window is otherwise undebuggable.
+    skinError = { style = style, err = tostring(err) }
+    current = "default"
+    if not errorPrinted[style] then
+      errorPrinted[style] = true
+      print("Warbank Audit: the " .. style .. " look failed (" .. tostring(err) .. "); using stock. See /ww theme.")
+    end
+  end
   if refs.repaint then refs.repaint() end
 end
 
@@ -293,6 +359,24 @@ function theme.decide()
   if eui then apply("ellesmere")
   elseif baganatorDark() then apply("baganator")
   else apply("default") end
+end
+
+-- Read-only diagnosis for /ww theme. The EllesmereUIDB keys mirror
+-- the suite's own toggle checks (see its SkinAPI gating).
+function theme.status()
+  local db = _G and _G.EllesmereUIDB or nil
+  local perAddon = db and db.thirdPartySkinAddons or nil
+  local bgrLoaded = C_AddOns and C_AddOns.IsAddOnLoaded
+    and C_AddOns.IsAddOnLoaded("Baganator")
+  return {
+    look = current,
+    euiFacade = eui ~= nil,
+    baganator = bgrLoaded or false,
+    baganatorSkin = baganatorSkinKey(),
+    euiMaster = not (db and db.thirdPartySkinsOff),
+    euiAddon = not (perAddon and perAddon["WarbankAudit"] == false),
+    error = skinError,
+  }
 end
 
 function theme.onEUISkin(S)

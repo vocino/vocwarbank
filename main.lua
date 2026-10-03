@@ -17,7 +17,7 @@ boot:SetScript("OnEvent", function(_, _, addon)
 end)
 
 local function help()
-  print("Warbank Audit: /ww [source <auto|vendor|auctionator|tsm|oribos>]"
+  print("Warbank Audit: /ww [source <auto|vendor|auctionator|tsm|oribos>] [theme]"
     .. " [inventory <auto|blizzard|syndicator>] [scope <warbank|bank|bags|all>]"
     .. " [threshold <gold>] [enchanter <name>] [never|always|unnever|unalways <item>] [config]")
 end
@@ -34,6 +34,14 @@ SlashCmdList.WARBANKAUDIT = function(msg)
     ns.ui.toggle()
   elseif cmd == "config" then
     ns.settings.open()
+  elseif cmd == "theme" then
+    local s = ns.theme.status()
+    print("Warbank Audit look: " .. s.look
+      .. " (eui:" .. (s.euiFacade and "yes" or "no")
+      .. " baganator:" .. (s.baganator and s.baganatorSkin or "absent") .. ")")
+    if not s.euiMaster then print("Warbank Audit: EUI third-party skins are OFF (master toggle).") end
+    if not s.euiAddon then print("Warbank Audit: EUI skin for WarbankAudit is OFF (per-addon toggle).") end
+    if s.error then print("Warbank Audit: last skin error [" .. s.error.style .. "]: " .. s.error.err) end
   elseif cmd == "source" and priceSources[rest] then
     ns.config.set("priceSource", rest)
     ns.providers.init()
