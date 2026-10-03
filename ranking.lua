@@ -8,6 +8,7 @@ ranking.verdictOrder = {
 
 -- C_Item.GetItemInfo return positions.
 local Q_QUALITY, Q_EQUIPLOC = 3, 9
+local Q_LEVEL = 4
 local Q_SELLPRICE, Q_CLASS, Q_BIND, Q_EXPANSION = 11, 12, 14, 15
 
 local CLASS_CONSUMABLE, CLASS_WEAPON, CLASS_ARMOR = 0, 2, 4
@@ -27,7 +28,7 @@ local function itemData(item)
   local info = { C_Item.GetItemInfo(item.itemID) }
   if info[1] == nil then return nil end -- not cached yet
   return {
-    quality = info[Q_QUALITY], equipLoc = info[Q_EQUIPLOC] or "",
+    quality = info[Q_QUALITY], equipLoc = info[Q_EQUIPLOC] or "", level = info[Q_LEVEL] or 0,
     sellPrice = info[Q_SELLPRICE] or 0, classID = info[Q_CLASS],
     bindType = info[Q_BIND], expansionID = info[Q_EXPANSION],
   }
@@ -139,7 +140,7 @@ function ranking.rank(items)
       local v, r = rule(item, data, ctx)
       if v then verdict, reason = v, r break end
     end
-    ranked[#ranked + 1] = { item = item, verdict = verdict, reason = reason }
+    ranked[#ranked + 1] = { item = item, verdict = verdict, reason = reason, detail = data }
   end
   return ranked
 end
