@@ -1,6 +1,6 @@
 local name, ns = ...
 
-ns.providers = {}
+-- ns.providers is set by providers.lua; do not reset it here
 ns.scopes = { "warbank", "bank", "bags" }
 
 local boot = CreateFrame("Frame")
@@ -12,6 +12,7 @@ boot:SetScript("OnEvent", function(_, _, addon)
   ns.config.init()
   ns.providers.init()
   ns.ui.init()
+  boot:UnregisterEvent("ADDON_LOADED")
 end)
 
 SLASH_WARBANKAUDIT1 = "/ww"

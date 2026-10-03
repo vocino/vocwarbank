@@ -11,10 +11,11 @@ local function scanBags(out)
     for slot = 1, C_Container.GetContainerNumSlots(bag) do
       local link = C_Container.GetContainerItemLink(bag, slot)
       if link then
-        local _, count = C_Container.GetContainerItemInfo(bag, slot)
+        local info = C_Container.GetContainerItemInfo(bag, slot)
         out[#out + 1] = {
           link = link, itemID = tonumber(link:match("item:(%d+)")),
-          count = count, bag = bag, slot = slot, scope = "bags",
+          count = info and info.stackCount or 1,
+          bag = bag, slot = slot, scope = "bags",
         }
       end
     end

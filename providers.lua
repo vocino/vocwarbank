@@ -23,8 +23,9 @@ local function pick()
 end
 
 function providers.init()
-  active = pick()
-  ns.activeSource = active and (select(2, pick())) or "none"
+  local provider, key = pick()
+  active = provider
+  ns.activeSource = key or "none"
 end
 
 function providers.get() return active end
@@ -40,8 +41,8 @@ function builtin.GetExpansion(itemID)
 end
 
 function builtin.GetMarketValue(itemLink)
-  local price = select(11, GetItemInfo(itemLink))
-  return price -- vendor sell price in copper, 0 if unsellable
+  local price = select(11, C_Item.GetItemInfo(itemLink))
+  return price -- vendor sell price in copper; nil if uncached, 0 if unsellable
 end
 
 providers.register("builtin", builtin)
