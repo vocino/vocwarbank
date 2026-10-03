@@ -8,7 +8,7 @@ local defaults = {
   ahThreshold = 100000,  -- copper; above this, SELL beats VENDOR
   neverSell = {},        -- itemID -> true
   alwaysSell = {},       -- itemID -> true
-  scope = "warbank",     -- warbank | bank | bags | all
+  scope = "bags",        -- warbank | bank | bags | all (bags until the warbank scan lands)
 }
 
 function config.init()

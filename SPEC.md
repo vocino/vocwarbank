@@ -60,8 +60,8 @@ Provider.GetMarketValue(itemLink) -> number | nil
 
 ### Providers
 
-1. **Builtin** (always available). Ships a generated expansion table,
-   updated per patch. Falls back to vendor sell price for value.
+1. **Builtin** (always available). Reads the expansion key from
+   the item's own expansionID. Falls back to vendor sell price for value.
 2. **Baganator/Syndicator** (optional). Expansion classification when
    loaded. Baganator exposes a documented public `Baganator.API`
    (other addons integrate with it today); Syndicator is the data
@@ -82,15 +82,16 @@ the verdict.
 
 1. Appearance not collected -> KEEP
 2. In a saved equipment set -> KEEP
-3. Current-expansion reagent or consumable -> KEEP
+3. Current-expansion consumable, reagent, or trade good -> KEEP
 4. On the never-sell list -> KEEP
-5. Old-expansion gear, bind-on-equip, market value above threshold
+5. On the always-sell list -> SELL (valued) or VENDOR
+6. Bind-on-equip gear, market value above threshold
    -> SELL (auction house)
-6. Disenchantable, expected mat value above vendor price
-   -> DISENCHANT (or mail to your enchanter)
-7. Has a vendor price -> VENDOR
-8. Quest item for a quest not in your log -> TRASH
-9. Anything else -> DESTROY
+7. Old-expansion uncommon or rare gear -> DISENCHANT (epics keep
+   buyback through VENDOR instead)
+8. Quest item -> KEEP (log check is future work)
+9. Has a vendor price -> VENDOR
+10. Anything else -> KEEP ("needs review"; never destroy by default)
 
 ## The window
 
@@ -126,6 +127,7 @@ the verdict.
   Auctionator. Never hard-require them.
 - SavedVariables are account-wide.
 - MIT license. Public repo under vocino.
+- EllesmereUI skin via RegisterSkin when present (optional).
 
 ## Open questions
 
