@@ -6,7 +6,7 @@
 ## Category: Bags & Inventory
 ## IconTexture: Interface\Icons\INV_Misc_Coin_01
 ## SavedVariables: WarbankAuditDB
-## OptionalDeps: Baganator, Syndicator, TradeSkillMaster, Auctionator, EllesmereUI
+## OptionalDeps: Baganator, Syndicator, TradeSkillMaster, Auctionator, EllesmereUI, OribosExchange
 ## X-Website: https://github.com/vocino/warbank-audit
 ## X-License: MIT
 ## X-Curse-Project-ID: 1724546
@@ -16,5 +16,7 @@ config.lua
 providers.lua
 scanner.lua
 ranking.lua
+theme.lua
 ui.lua
+settings.lua
 main.lua

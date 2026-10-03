@@ -60,20 +60,24 @@ Provider.GetMarketValue(itemLink) -> number | nil
 
 ### Providers
 
-1. **Builtin** (always available). Reads the expansion key from
-   the item's own expansionID. Falls back to vendor sell price for value.
-2. **Baganator/Syndicator** (optional). Expansion classification when
-   loaded. Baganator exposes a documented public `Baganator.API`
-   (other addons integrate with it today); Syndicator is the data
-   library underneath it. Exact call to verify at build time.
-3. **TSM** (optional). Market value via its public API. Exact call to
-   verify at build time.
-4. **Auctionator** (optional). Market value via its public API. Exact
-   call to verify at build time.
+Prices cascade through the configured source, then vendor. Auto
+order follows install base: Auctionator -> TSM -> Oribos Exchange
+-> vendor prices. Expansion always comes from the item itself.
 
-Every external call is wrapped so a broken provider falls back to
-Builtin. The user picks a source in settings (Auto / Builtin /
-Baganator); the window header shows which source is active.
+1. **Auctionator** (optional). Realm min-buyout from its scan DB.
+2. **TSM** (optional). Evaluates the configured price key (DBMarket).
+3. **Oribos Exchange** (optional). Realm market value, region fallback.
+4. **Vendor** (always available). Sell price ends every cascade.
+Warbank contents come from Syndicator (Baganator's data) when
+present; Blizzard bank scans are future work.
+All external calls are presence-gated and pcall-guarded, so a
+broken pricing addon can never break a scan.
+The user picks price and warbank sources in settings (Auto by
+default); the window header shows the active price source.
+
+Availability is checked live on every lookup, so late-loading
+addons join the cascade with no reload.
+(Auctioneer has no Midnight retail build and is not supported.)
 
 ## Ranking
 
@@ -97,12 +101,36 @@ the verdict.
 
 - Header: item count, slots to free, estimated gold, active data
   source.
-- Body: one scroll list grouped by verdict (Keep / Sell /
-  Disenchant / Vendor / Trash). Each row shows icon, name, count,
-  value, and a reason tag like "uncollected look" or "old reagent".
-- The line: a draggable divider. Everything below it is queued.
-- Footer: dry-run summary first ("142 items, 38 slots, ~12,400g"),
-  then per-group action buttons.
+- Body: Baganator-style icon grid grouped by category or expansion.
+  Icons show stack count, item level, quality border, and a verdict
+  dot; hover for name, value, and reason tag.
+- Selection: click icons or group headers to queue them. Verdict
+  filter tabs narrow the grid.
+- Footer: dry-run summary ("142 items, 38 slots, ~12,400g"), then per-group action buttons.
+
+## Looks
+
+One window, three looks, picked live by theme.lua:
+
+- EllesmereUI present (and skinning us): the suite's own textured
+  shell through its public facade — Shell, Panel, Inset, Button,
+  SquareIcon, ScrollBar, Font/White — so it matches by
+  construction, including the Modern flat variant.
+- Baganator loaded and running its Dark skin: a faithful
+  replication of Skins/Dark.lua — same backdrop assets
+  (dark-backgroundfile/dark-edgefile, edge 9 window / 6 buttons),
+  same fill (0.05 at alpha 0.7) and border (0.35), same button
+  hover/press/disabled behavior, category headers in
+  GameFontNormalMed2, icons cropped with dark-icon-border in
+  quality colors.
+- Otherwise stock Blizzard chrome, which is also what
+  Baganator's own Blizzard skin looks like.
+
+EllesmereUI wins when both are present (Baganator itself
+auto-enables its EllesmereUI skin then, so all three match).
+Quality and verdict colors stay ours in every look — they are
+data, not chrome. Looks re-resolve on every scan; EUI is sticky
+until reload by the suite's own design.
 
 ## Actions
 
@@ -115,23 +143,26 @@ the verdict.
 
 ## Settings
 
-- Data source: Auto / Builtin / Baganator.
-- Enchanter character name.
-- Auction-house value threshold (Sell vs Vendor).
-- Never-sell and always-sell lists, account-wide.
+Settings are account-wide, edited in the addon panel (`/ww config`)
+or on the slash line.
+
+- Price source: Auto / Vendor / Auctionator / TSM / Oribos Exchange.
+- Warbank source: Auto / Syndicator / Blizzard API.
+- TSM price key (default DBMarket), enchanter name, auction threshold.
+- Never/always-sell lists via /ww never|always <item>.
 
 ## Build notes
 
 - Target the current retail interface version.
 - OptionalDeps on Baganator, Syndicator, TradeSkillMaster,
-  Auctionator. Never hard-require them.
+  Auctionator, EllesmereUI, OribosExchange. Never hard-require them.
 - SavedVariables are account-wide.
 - MIT license. Public repo under vocino.
-- EllesmereUI skin via RegisterSkin when present (optional).
+- Looks follow theme.lua (see Looks); suites are never hard-required.
 
 ## Open questions
 
-- Exact Baganator/Syndicator expansion call. Verify at build.
-- Exact TSM/Auctionator price calls. Verify at build.
-- Warband bank scan API details. Verify at build.
+- Syndicator warbank shape needs in-game verification (no local install).
+- TSM/Auctionator/Oribos calls need in-game verification (no local installs).
+- Blizzard C_Bank path for warbank (Syndicator covers it meanwhile).
 - CurseForge and Wago publishing: after v1 works, not before.

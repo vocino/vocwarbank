@@ -19,22 +19,23 @@ CurseForge and Wago packages are coming later.
 /ww
 ```
 
-Pick a scope (warbank, bank, bags), look at the ranked list, drag
-the line to where your comfort level is, review the dry-run summary,
-hit go. Uncollected appearances and equipment sets stay,
-current-expansion mats stay, everything else gets a verdict: sell,
-disenchant, vendor, trash, or destroy.
+Pick a scope (warbank, bank, bags) and browse the icon grid, grouped
+by category or expansion. Filter by verdict, click to queue what
+goes, review the dry-run summary, hit go. Uncollected appearances
+and equipment sets stay, current-expansion mats stay, everything
+else gets a verdict: sell, disenchant, vendor, trash, or destroy.
 
-Tune it with `/ww source <auto|builtin|baganator>`, `/ww scope
-<warbank|bank|bags|all>`, `/ww threshold <gold>`, and `/ww enchanter
-<name>`.
+Tune it in the settings panel (`/ww config`) or on the slash line:
+`/ww source <auto|vendor|auctionator|tsm|oribos>`, `/ww inventory
+<auto|blizzard|syndicator>`, `/ww scope <warbank|bank|bags|all>`,
+`/ww threshold <gold>`, `/ww enchanter <name>`, `/ww never <item>`.
 
 ## How it works
 
 Two layers: providers fetch the data behind one contract, and the UI
-never talks to third-party addons directly. The builtin provider
-always works; Baganator, TSM, or Auctionator plug in for better
-expansion and price data when you have them.
+never talks to third-party addons directly. Prices cascade from
+Auctionator, TSM, and Oribos Exchange down to vendor prices;
+Syndicator (Baganator) feeds warbank contents when present.
 
 ## What's inside
 
@@ -44,6 +45,8 @@ expansion and price data when you have them.
 - `scanner.lua`: container-agnostic item scan
 - `ranking.lua`: the verdict rules
 - `ui.lua`: the triage window
+- `theme.lua`: matches EllesmereUI or Baganator Dark when present
+- `settings.lua`: options panel
 - `SPEC.md`: the full spec
 
 ## License
