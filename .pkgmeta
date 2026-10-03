@@ -3,3 +3,4 @@ package-as: WarbankAudit
 ignore:
   - .github
   - SPEC.md
+  - AGENTS.md

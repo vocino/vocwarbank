@@ -2,13 +2,17 @@
 ## Title: Warbank Audit
 ## Notes: Audit your warband bank, bank, and bags. Rank everything by usefulness, draw the line, clean house.
 ## Author: vocino
-## Version: 0.1.0
+## Version: @project-version@
+## Category: Bags & Inventory
+## IconTexture: Interface\Icons\INV_Misc_Coin_01
 ## SavedVariables: WarbankAuditDB
 ## OptionalDeps: Baganator, Syndicator, TradeSkillMaster, Auctionator
+## X-Website: https://github.com/vocino/warbank-audit
+## X-License: MIT
 
-main.lua
 config.lua
 providers.lua
 scanner.lua
 ranking.lua
 ui.lua
+main.lua
