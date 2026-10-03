@@ -9,6 +9,8 @@
 ## OptionalDeps: Baganator, Syndicator, TradeSkillMaster, Auctionator
 ## X-Website: https://github.com/vocino/warbank-audit
 ## X-License: MIT
+## X-Curse-Project-ID: 1724546
+## X-Wago-ID: qGYBeeNg
 
 config.lua
 providers.lua
