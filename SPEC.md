@@ -104,7 +104,9 @@ the verdict.
 
 - Header: item count, slots to free, estimated gold, active data
   source.
-- Body: Baganator-style icon grid grouped by category or expansion.
+- Body: Baganator-style icon grid grouped by category or expansion,
+  sub-split on the other axis (Armor: The War Within). Never-sell
+  and always-sell lists pin to their own leading sections.
   Icons show stack count, item level, quality border, and a verdict
   dot; hover for name, value, and reason tag.
 - Selection: click icons or group headers to queue them. Verdict

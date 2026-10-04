@@ -34,8 +34,9 @@ local CATEGORY_LABEL = {
   [0] = "Consumables", [1] = "Containers", [2] = "Weapons", [3] = "Gems",
   [4] = "Armor", [5] = "Reagents", [6] = "Projectiles", [7] = "Trade Goods",
   [8] = "Enhancements", [9] = "Recipes", [12] = "Quest Items", [15] = "Miscellaneous",
+  [17] = "Battle Pets", [19] = "Profession", [20] = "Housing",
 }
-local CATEGORY_ORDER = { 2, 4, 0, 7, 5, 3, 8, 9, 1, 12, 15 }
+local CATEGORY_ORDER = { 2, 4, 0, 7, 5, 3, 8, 9, 1, 12, 15, 17, 19, 20 }
 local EXP_LABEL = {
   midnight = "Midnight", tww = "The War Within", df = "Dragonflight",
   sl = "Shadowlands", bfa = "Battle for Azeroth", legion = "Legion",
@@ -78,40 +79,121 @@ function ui.entryKey(entry)
   return (item.scope or "?") .. ":" .. (item.bag or item.tab or "?") .. ":" .. (item.slot or item.index or "?")
 end
 
+-- Group specs. Priority is display order (lower rank wins); pins always
+-- lead and the catch-all always trails, Baganator-style first-match
+-- consumption: each entry lands in exactly one section.
+local function mainKeyFor(entry, mode, getExpansion)
+  if mode == "expansion" then
+    return entry.item.itemID and getExpansion(entry.item.itemID) or nil
+  end
+  local classID = entry.detail and entry.detail.classID
+  return (classID ~= nil and CATEGORY_LABEL[classID]) and classID or nil
+end
+
+local function mainLabel(mode, key)
+  if mode == "expansion" then return EXP_LABEL[key] end
+  return CATEGORY_LABEL[key]
+end
+
+local function subKeyFor(entry, mode, getExpansion)
+  if mode == "expansion" then
+    local classID = entry.detail and entry.detail.classID
+    return (classID ~= nil and CATEGORY_LABEL[classID]) and classID or nil
+  end
+  return entry.item.itemID and getExpansion(entry.item.itemID) or nil
+end
+
+local function subLabel(mode, key)
+  if mode == "expansion" then return CATEGORY_LABEL[key] end
+  return EXP_LABEL[key]
+end
+
 -- Sections for the grid. mode is "category" or "expansion", filter is
--- "all" or a verdict. getExpansion maps itemID -> expansion key.
-function ui.buildSections(ranked, mode, getExpansion, filter)
-  local buckets, seen = {}, {}
+-- "all" or a verdict. getExpansion maps itemID -> expansion key. pins
+-- is { never = {id=true}, always = {id=true} } or nil.
+function ui.buildSections(ranked, mode, getExpansion, filter, pins)
+  local order = mode == "expansion" and EXP_ORDER or CATEGORY_ORDER
+  local rank = {}
+  for i, key in ipairs(order) do rank[key] = i end
+  local function sortKey(key)
+    if key == "pinned:never" then return -2 end
+    if key == "pinned:always" then return -1 end
+    if key == "other" then return 1e9 end
+    return rank[key] or 1e8
+  end
+  local mains, seen = {}, {}
+  local function bucket(key)
+    local b = mains[key]
+    if not b then
+      b = { key = key, entries = {} }
+      mains[key] = b
+      seen[#seen + 1] = key
+    end
+    return b
+  end
   for _, entry in ipairs(ranked) do
     if filter == "all" or entry.verdict == filter then
-      local key, label
-      if mode == "expansion" then
-        key = entry.item.itemID and getExpansion(entry.item.itemID) or nil
-        label = (key and EXP_LABEL[key]) or "Unknown"
-        key = key or "unknown"
-      else
-        local classID = entry.detail and entry.detail.classID
-        key = (classID ~= nil and CATEGORY_LABEL[classID]) and classID or "misc"
-        if classID == nil then key = "other" end
-        label = (key == "misc" and "Miscellaneous") or (key == "other" and "Other")
-          or CATEGORY_LABEL[key]
-      end
-      if not buckets[key] then buckets[key] = {} seen[#seen + 1] = key end
-      buckets[key].label = buckets[key].label or label
-      buckets[key][#buckets[key] + 1] = entry
+      local id = entry.item.itemID
+      local key
+      if id and pins and pins.never[id] then key = "pinned:never"
+      elseif id and pins and pins.always[id] then key = "pinned:always"
+      else key = mainKeyFor(entry, mode, getExpansion) or "other" end
+      local b = bucket(key)
+      b.entries[#b.entries + 1] = entry
     end
   end
-  local order = mode == "expansion" and EXP_ORDER or CATEGORY_ORDER
-  local sections, done = {}, {}
-  for _, key in ipairs(order) do
-    if buckets[key] then
-      sections[#sections + 1] = { label = buckets[key].label, entries = buckets[key] }
-      done[key] = true
-    end
-  end
+  local seenAt = {}
+  for i, key in ipairs(seen) do seenAt[key] = i end
+  table.sort(seen, function(a, b)
+    local ra, rb = sortKey(a), sortKey(b)
+    if ra ~= rb then return ra < rb end
+    return seenAt[a] < seenAt[b]
+  end)
+  local subOrder = mode == "expansion" and CATEGORY_ORDER or EXP_ORDER
+  local subRank = {}
+  for i, key in ipairs(subOrder) do subRank[key] = i end
+  local sections = {}
   for _, key in ipairs(seen) do
-    if not done[key] then
-      sections[#sections + 1] = { label = buckets[key].label, entries = buckets[key] }
+    local main = mains[key]
+    local label
+    if key == "pinned:never" then label = "Never Sell"
+    elseif key == "pinned:always" then label = "Always Sell"
+    elseif key == "other" then label = mode == "expansion" and "Unknown" or "Other"
+    else label = mainLabel(mode, key) end
+    local splittable = key ~= "other" and key ~= "pinned:never" and key ~= "pinned:always"
+    if not splittable then
+      sections[#sections + 1] = { key = mode .. ":" .. tostring(key), label = label, entries = main.entries }
+    else
+      -- Sub-split on the other axis when it actually divides the group.
+      local subs, subSeen = {}, {}
+      for _, entry in ipairs(main.entries) do
+        local sk = subKeyFor(entry, mode, getExpansion) or "other"
+        if not subs[sk] then subs[sk] = {} subSeen[#subSeen + 1] = sk end
+        subs[sk][#subs[sk] + 1] = entry
+      end
+      if #subSeen < 2 then
+        sections[#sections + 1] = { key = mode .. ":" .. tostring(key), label = label, entries = main.entries }
+      else
+        local subAt = {}
+        for i, sk in ipairs(subSeen) do subAt[sk] = i end
+        table.sort(subSeen, function(a, b)
+          local ra, rb = subRank[a] or 1e9, subRank[b] or 1e9
+          if ra ~= rb then return ra < rb end
+          return subAt[a] < subAt[b]
+        end)
+        for _, sk in ipairs(subSeen) do
+          local suffix = ""
+          if sk ~= "other" then
+            local sl = subLabel(mode, sk)
+            if sl then suffix = ": " .. sl end
+          end
+          sections[#sections + 1] = {
+            key = mode .. ":" .. tostring(key) .. ":" .. tostring(sk),
+            label = label .. suffix,
+            entries = subs[sk],
+          }
+        end
+      end
     end
   end
   return sections
@@ -306,7 +388,9 @@ end
 
 function render(ranked)
   lastRanked = ranked or {}
-  lastSections = ui.buildSections(lastRanked, groupMode, expansionGetter(), filter)
+  lastSections = ui.buildSections(lastRanked, groupMode, expansionGetter(), filter, {
+    never = ns.config.get("neverSell") or {}, always = ns.config.get("alwaysSell") or {},
+  })
   local hi, ii, y = 0, 0, 0
   for _, sec in ipairs(lastSections) do
     hi = hi + 1
