@@ -31,8 +31,45 @@ local function scanBags(out)
   end
 end
 
+-- Character bank: main bank, bank bags, reagent bank. Plain
+-- C_Container bags; contents read empty unless the bank is open,
+-- same as the Blizzard warbank path.
 local function scanBank(out)
-  -- TODO: character bank slots via C_Container (bank bags) + BankFrame
+  local ids, seen = {}, {}
+  local function add(id)
+    if id and not seen[id] then seen[id] = true ids[#ids + 1] = id end
+  end
+  local bagIndex = Enum and Enum.BagIndex or nil
+  if bagIndex then
+    add(bagIndex.Bank)
+    for i = 1, 7 do add(bagIndex["BankBag_" .. i]) end
+    add(bagIndex.Reagentbank)
+    add(bagIndex.ReagentBank)
+  end
+  -- legacy numeric IDs, stable across clients
+  add(-1) -- BANK_CONTAINER
+  for i = 5, 11 do add(i) end -- bank bags
+  add(-3) -- REAGENTBANK_CONTAINER
+  for _, bagID in ipairs(ids) do
+    local ok, numSlots = pcall(C_Container.GetContainerNumSlots, bagID)
+    if ok and numSlots and numSlots > 0 then
+      for slot = 1, numSlots do
+        local link = C_Container.GetContainerItemLink(bagID, slot)
+        if link then
+          local info = C_Container.GetContainerItemInfo(bagID, slot)
+          out[#out + 1] = {
+            link = link, itemID = tonumber(link:match("item:(%d+)")),
+            count = info and info.stackCount or 1,
+            bag = bagID, slot = slot, scope = "bank",
+            openable = info and info.hasLoot or nil,
+            quality = info and info.quality or nil,
+            icon = info and info.iconFileID or nil,
+            bound = info and info.isBound or nil,
+          }
+        end
+      end
+    end
+  end
 end
 
 local function syndicatorReady()

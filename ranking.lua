@@ -196,13 +196,47 @@ rules[#rules + 1] = function(item, data, ctx)
   return "disenchant", "disenchantable"
 end
 
--- 11. Quest item -> keep. Trashing dead quest items needs a quest-log
--- lookup (TODO); until then these stay out of harm's way.
+-- Dead quest items. Builds the completed-quest title set once per
+-- session, then matches tooltip lines against it. Definitive-false:
+-- no completed set, no tooltip, no match -> keep.
+local questTip, completedTitles
+
+local function buildCompletedTitles()
+  completedTitles = {}
+  local ql = C_QuestLog
+  if not (ql and ql.GetAllCompletedQuestIDs and ql.GetTitleForQuestID) then return end
+  local ok, ids = pcall(ql.GetAllCompletedQuestIDs)
+  if not ok or type(ids) ~= "table" then return end
+  for _, id in ipairs(ids) do
+    local okTitle, title = pcall(ql.GetTitleForQuestID, id)
+    if okTitle and title and title ~= "" then completedTitles[title] = true end
+  end
+end
+
+local function questTitleFromLink(link)
+  if not link then return nil end
+  if not questTip then
+    questTip = CreateFrame("GameTooltip", "WarbankAuditQuestTip", UIParent, "GameTooltipTemplate")
+  end
+  questTip:SetOwner(UIParent, "ANCHOR_NONE")
+  questTip:ClearLines()
+  if not pcall(questTip.SetHyperlink, questTip, link) then return nil end
+  for i = 2, questTip:NumLines() do
+    local line = _G["WarbankAuditQuestTipTextLeft" .. i]
+    local text = line and line:GetText()
+    if text and text ~= "" and completedTitles[text] then return text end
+  end
+  return nil
+end
+
+-- 11. Quest item -> keep, unless its quest is complete. Dead quest
+-- items trash; anything unproven stays out of harm's way.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
-  if data.classID == CLASS_QUEST or data.bindType == BIND_QUEST then
-    return "keep", "quest item"
-  end
+  if data.classID ~= CLASS_QUEST and data.bindType ~= BIND_QUEST then return nil end
+  if completedTitles == nil then buildCompletedTitles() end
+  if questTitleFromLink(item.link) then return "trash", "quest complete" end
+  return "keep", "quest item"
 end
 
 -- 12. Has a vendor price -> vendor

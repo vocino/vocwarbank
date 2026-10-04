@@ -96,7 +96,8 @@ the verdict.
    -> SELL (auction house)
 10. Old-expansion uncommon or rare gear -> DISENCHANT (epics keep
    buyback through VENDOR instead)
-11. Quest item -> KEEP (log check is future work)
+11. Quest item for a completed quest -> TRASH (dead quest item,
+   quest-log lookup); other quest items -> KEEP
 12. Has a vendor price -> VENDOR
 13. Anything else -> KEEP ("needs review"; never destroy by default)
 
@@ -149,8 +150,9 @@ theme` reports the live look, the EUI toggles, and any skin error.
 
 - Use: consumes one-click items from bags (open caches, collect decor).
 - Vendor: sells at a merchant, keeps buyback intact.
-- Disenchant: on an enchanter; otherwise prepares mail to the
-  enchanter named in settings.
+- Disenchant: one-click mail to the enchanter named in settings
+  (at a mailbox, with confirmation, 12 items per mail); without an
+  enchanter set, the queue is just listed.
 - Sell: hands off to TSM/Auctionator when present; otherwise flags
   for manual listing.
 - Trash: destroy with confirmation.
@@ -181,7 +183,6 @@ or on the slash line.
 
 - Syndicator warbank shape needs in-game verification (no local install).
 - TSM/Auctionator/Oribos calls need in-game verification (no local installs).
-- Character bank slots via C_Container bank bags (scanBank TODO).
 - CurseForge and Wago publishing: after v1 works, not before.
 - Decor owned-count semantics need in-game verification (bag items
   vs storage counts).

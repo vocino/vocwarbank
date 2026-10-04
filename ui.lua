@@ -588,21 +588,78 @@ function ui.vendorQueued(list)
   return n
 end
 
+-- Disenchant mails to the enchanter. The footer button click is the
+-- hardware event that makes the protected container calls legal.
+-- Mail goes out in 12-item batches; anything that won't attach
+-- (soulbound etc.) is put back and reported, never lost.
+local MAIL_BATCH = 12
+
+local function atMailbox()
+  return MailFrame and MailFrame:IsShown()
+end
+
+local function mailToEnchanter(who, items)
+  local sent, skipped = 0, 0
+  local i = 1
+  while i <= #items do
+    SendMailNameEditBox:SetText(who)
+    SendMailSubjectEditBox:SetText("Warbank Audit: disenchantables")
+    local attached = 0
+    while attached < MAIL_BATCH and i <= #items do
+      local item = items[i]
+      C_Container.PickupContainerItem(item.bag, item.slot)
+      if GetCursorInfo() then
+        ClickSendMailItemButton()
+        if GetCursorInfo() then
+          C_Container.PickupContainerItem(item.bag, item.slot) -- put it back
+          skipped = skipped + 1
+        else
+          attached = attached + 1
+        end
+      else
+        skipped = skipped + 1
+      end
+      i = i + 1
+    end
+    if attached > 0 then
+      SendMailMailButton:Click()
+      sent = sent + attached
+    end
+  end
+  ui.rescan(true)
+  print("Warbank Audit: mailed " .. sent .. " items to " .. who
+    .. (skipped > 0 and " (skipped " .. skipped .. " unmailable)" or "") .. ".")
+  return sent
+end
+
 function ui.disenchantQueued(list)
   list = list or selectedWhere(function(e) return e.verdict == "disenchant" end)
   if #list == 0 then return 0 end
-  -- TODO: one-click handling needs the enchanter/mail flow verified in
-  -- game (see SPEC.md open questions). For now, prepare the package.
   local who = ns.config.get("enchanter")
-  if who and who ~= "" then
-    print("Warbank Audit: " .. #list .. " items prepared for " .. who
-      .. " — open a mailbox to send them. (One-click mail coming in a later version.)")
-  else
+  if not who or who == "" then
     print("Warbank Audit: " .. #list .. " items to disenchant — set your enchanter with"
       .. " /ww enchanter <name>, or disenchant them directly.")
+    for _, entry in ipairs(list) do print("  " .. ui.linkName(entry.item.link)) end
+    return #list
   end
-  for _, entry in ipairs(list) do print("  " .. ui.linkName(entry.item.link)) end
-  return #list
+  local mailable = {}
+  for _, entry in ipairs(list) do
+    local item = entry.item
+    if item.scope == "bags" and type(item.bag) == "number" and type(item.slot) == "number" then
+      mailable[#mailable + 1] = item
+    end
+  end
+  if #mailable == 0 then
+    print("Warbank Audit: nothing mailable — the disenchant queue is all bank/warbank items.")
+    return 0
+  end
+  if not atMailbox() then
+    print("Warbank Audit: " .. #mailable .. " items ready for " .. who
+      .. " — open a mailbox to send them.")
+    return #mailable
+  end
+  StaticPopup_Show("WARBANKAUDIT_CONFIRM_MAIL", #mailable, who, { who = who, items = mailable })
+  return #mailable
 end
 
 function ui.sellQueued(list)
@@ -896,6 +953,15 @@ function ui.init()
     button1 = YES,
     button2 = NO,
     OnAccept = function() ui.destroyQueued() end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+  }
+  StaticPopupDialogs["WARBANKAUDIT_CONFIRM_MAIL"] = {
+    text = "Mail %d items to %s?",
+    button1 = YES,
+    button2 = NO,
+    OnAccept = function(_, data) mailToEnchanter(data.who, data.items) end,
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
