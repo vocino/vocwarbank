@@ -288,22 +288,22 @@ local function applyEllesmere()
   S.Font(refs.title)
   S.White(refs.title)
   for _, t in ipairs(refs.texts) do S.Font(t) end
-  for i = 1, #refs.headPool do theme.styleHeader(refs.headPool[i]) end
-  for i = 1, #refs.iconPool do theme.styleIcon(refs.iconPool[i]) end
+  for _b in refs.headPool:EnumerateActive() do theme.styleHeader(_b._rec) end
+  for _b in refs.iconPool:EnumerateActive() do theme.styleIcon(_b._rec) end
 end
 
 local function applyBaganator()
   applyBaganatorWindow(refs.window)
   for _, rec in ipairs(refs.buttons) do bgrStyleButton(rec.b) end
-  for i = 1, #refs.headPool do theme.styleHeader(refs.headPool[i]) end
-  for i = 1, #refs.iconPool do theme.styleIcon(refs.iconPool[i]) end
+  for _b in refs.headPool:EnumerateActive() do theme.styleHeader(_b._rec) end
+  for _b in refs.iconPool:EnumerateActive() do theme.styleIcon(_b._rec) end
 end
 
 local function clearBaganator()
   clearBaganatorWindow(refs.window)
   for _, rec in ipairs(refs.buttons) do bgrUnstyleButton(rec.b) end
-  for i = 1, #refs.headPool do
-    local r = refs.headPool[i]
+  for _b in refs.headPool:EnumerateActive() do
+    local r = _b._rec
     if r.savedFont then r.label:SetFont(unpack(r.savedFont)) end
   end
 end

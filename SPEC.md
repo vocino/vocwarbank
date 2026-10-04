@@ -109,9 +109,12 @@ the verdict.
   and always-sell lists pin to their own leading sections.
   Icons show stack count, item level, quality border, and a verdict
   dot; hover for name, value, and reason tag.
-- Selection: click icons or group headers to queue them. Verdict
+- Selection: click icons or shift-click group headers to queue them. Verdict
   filter tabs narrow the grid.
 - The grid live-updates on inventory changes, preserving the queue.
+- Search dims non-matches in place; the sort button cycles
+  quality/value/name order (right-click reverses). Headers collapse
+  with a click; collapse and sort persist.
 - Footer: dry-run summary ("142 items, 38 slots, ~12,400g"), then per-group action buttons.
 
 ## Looks
