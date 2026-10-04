@@ -38,6 +38,13 @@ never talks to third-party addons directly. Prices cascade from
 Auctionator, TSM, and Oribos Exchange down to vendor prices;
 Syndicator (Baganator) feeds warbank contents when present.
 
+## Tests
+
+Headless tests run the ranking rules and the scanner against
+stubbed WoW APIs. No game client needed:
+
+    lua tests/run.lua
+
 ## What's inside
 
 - `main.lua`: boot, slash command
@@ -49,6 +56,7 @@ Syndicator (Baganator) feeds warbank contents when present.
 - `theme.lua`: matches EllesmereUI or Baganator Dark when present
 - `settings.lua`: options panel
 - `SPEC.md`: the full spec
+- `tests/`: headless tests with stubbed WoW APIs
 
 ## License
 
