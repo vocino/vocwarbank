@@ -905,7 +905,9 @@ function ui.init()
   end)
   sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   ns.theme.styleButton(sortBtn, true)
-  scroll = CreateFrame("ScrollFrame", "VocWarbankScroll", window, "UIPanelScrollFrameTemplate")
+  -- Anonymous: nothing addresses it by name (the bar is reached via
+  -- scroll.ScrollBar), so it must not cost a global.
+  scroll = CreateFrame("ScrollFrame", nil, window, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", window, "TOPLEFT", 12, -100)
   scroll:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -30, 86)
   child = CreateFrame("Frame", nil, scroll)

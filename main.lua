@@ -1,7 +1,6 @@
 local name, ns = ...
 
 -- ns.providers is set by providers.lua; do not reset it here
-ns.scopes = { "warbank", "bank", "bags" }
 
 local boot = CreateFrame("Frame")
 boot:RegisterEvent("ADDON_LOADED")
