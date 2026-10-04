@@ -5,3 +5,4 @@ ignore:
   - SPEC.md
   - AGENTS.md
   - tests
+  - VERSIONING.md

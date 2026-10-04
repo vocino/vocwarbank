@@ -10,6 +10,13 @@ short, distinctive, no collision risk, "bank" in the name for
 CurseForge/Wago search. Listing description carries the keywords:
 "audit and clean your warband bank, bank, and bags."
 
+`Voc` is the author namespace: every global carries the
+`VocWarbank` prefix — frames, SavedVariables (`VocWarbankDB`),
+slash command (`SLASH_VOCWARBANK`), popups (`VOCWARBANK_*`),
+chat (`VocWarbank:`). Never introduce an unprefixed global.
+v0.1.x shipped under the old "Warbank Audit" name, so the rename
+resets saved settings once.
+
 Candidates considered: Bank Audit (most literal, too generic),
 Warband Bank Cleaner (matches search phrasing, forgettable).
 
@@ -41,11 +48,14 @@ Two layers. The UI never talks to third-party addons directly.
 ```
 VocWarbank/
   main.lua      boot, slash command
-  config.lua    settings, never-sell lists
+  config.lua    settings, never/always-sell lists
   providers.lua data layer behind one contract (Data)
   scanner.lua   container-agnostic item scan
   ranking.lua   verdict rules (Core)
   ui.lua        the triage window (UI)
+  theme.lua     EllesmereUI / Baganator Dark / stock looks
+  settings.lua  options panel
+  tests/        headless tests (lua tests/run.lua)
 ```
 
 ### Provider contract
@@ -127,7 +137,7 @@ One window, three looks, picked live by theme.lua:
   SquareIcon in follow-mode off a hidden quality ring per tile,
   and a replicated house thumb strip on our legacy scrollbar (the
   engine only skins modern bars) — matching by construction,
-  construction, including the Modern flat variant.
+  including the Modern flat variant.
 - Baganator loaded and running its Dark skin: a faithful
   replication of Skins/Dark.lua — same backdrop assets
   (dark-backgroundfile/dark-edgefile, edge 9 window / 6 buttons),
@@ -183,7 +193,8 @@ or on the slash line.
 
 - Syndicator warbank shape needs in-game verification (no local install).
 - TSM/Auctionator/Oribos calls need in-game verification (no local installs).
-- CurseForge and Wago publishing: after v1 works, not before.
+- Confirm CurseForge/Wago received the v0.1.x packages
+  (GitHub Releases did); the next tag ships the VocWarbank rename.
 - Decor owned-count semantics need in-game verification (bag items
   vs storage counts).
 - Toy rule needs in-game confirmation that GetToyInfo covers

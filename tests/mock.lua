@@ -3,6 +3,8 @@
 --   local mock = dofile("tests/mock.lua")
 --   mock.install()
 
+local unpack = unpack or table.unpack -- retail client is 5.1, probes run newer
+
 local mock = {}
 
 function mock.reset()

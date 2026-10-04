@@ -9,9 +9,10 @@ destroys anything on its own.
 
 ## Installation
 
-Copy the folder into `Interface/AddOns` and rename it to
-`VocWarbank` (the folder name must match the `.toc` file).
-CurseForge and Wago packages are coming later.
+Download the latest zip from [GitHub
+Releases](https://github.com/vocino/vocwarbank/releases), copy
+the folder into `Interface/AddOns` and rename it to `VocWarbank`
+(the folder name must match the `.toc` file).
 
 ## Usage
 
