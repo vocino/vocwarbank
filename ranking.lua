@@ -9,14 +9,22 @@ ranking.verdictOrder = {
 -- C_Item.GetItemInfo return positions.
 local Q_QUALITY, Q_EQUIPLOC = 3, 9
 local Q_LEVEL = 4
-local Q_SELLPRICE, Q_CLASS, Q_BIND, Q_EXPANSION = 11, 12, 14, 15
+local Q_SELLPRICE, Q_CLASS, Q_SUBCLASS, Q_BIND, Q_EXPANSION = 11, 12, 13, 14, 15
 
 local CLASS_CONSUMABLE, CLASS_WEAPON, CLASS_ARMOR = 0, 2, 4
 local CLASS_REAGENT, CLASS_TRADEGOODS, CLASS_QUEST = 5, 7, 12
+local CLASS_PROFESSION = 19
 local BIND_EQUIP, BIND_QUEST = 2, 4
 local QUALITY_UNCOMMON, QUALITY_RARE = 2, 3
 
 -- Slots with no transmog appearance; checking them would keep everything.
+-- ItemProfessionSubclass -> skillID (GetProfessionInfo's 7th return).
+local PROFESSION_SKILL = {
+  [0] = 164, [1] = 165, [2] = 171, [3] = 182, [4] = 185, [5] = 186,
+  [6] = 197, [7] = 202, [8] = 333, [9] = 356, [10] = 393, [11] = 755,
+  [12] = 773, [13] = 794,
+}
+
 local NO_APPEARANCE = {
   INVTYPE_FINGER = true, INVTYPE_TRINKET = true, INVTYPE_NECK = true,
   INVTYPE_AMMO = true, INVTYPE_QUIVER = true, INVTYPE_BAG = true,
@@ -29,7 +37,7 @@ local function itemData(item)
   if info[1] == nil then return nil end -- not cached yet
   return {
     quality = info[Q_QUALITY], equipLoc = info[Q_EQUIPLOC] or "", level = info[Q_LEVEL] or 0,
-    sellPrice = info[Q_SELLPRICE] or 0, classID = info[Q_CLASS],
+    sellPrice = info[Q_SELLPRICE] or 0, classID = info[Q_CLASS], subclassID = info[Q_SUBCLASS],
     bindType = info[Q_BIND], expansionID = info[Q_EXPANSION],
   }
 end
@@ -42,6 +50,18 @@ local function setItemIDs()
     end
   end
   return inSet
+end
+
+local function professionSkillIDs()
+  local has = {}
+  if not (GetProfessions and GetProfessionInfo) then return has end
+  for _, index in pairs({ GetProfessions() }) do
+    if index then
+      local skillID = select(7, GetProfessionInfo(index))
+      if skillID then has[skillID] = true end
+    end
+  end
+  return has
 end
 
 local function marketValue(item, provider)
@@ -90,7 +110,16 @@ rules[#rules + 1] = function(item, data, ctx)
   end
 end
 
--- 6. Openable container (cache, lockbox, gift) -> use. Contents
+-- 6. Profession tool for a profession you have -> keep. Character-
+-- scoped like equipment sets: warbank tools for an alt's profession
+-- don't keep here.
+rules[#rules + 1] = function(item, data, ctx)
+  if not data or data.classID ~= CLASS_PROFESSION then return nil end
+  local skill = data.subclassID and PROFESSION_SKILL[data.subclassID] or nil
+  if skill and ctx.professions[skill] then return "keep", "profession tool" end
+end
+
+-- 7. Openable container (cache, lockbox, gift) -> use. Contents
 -- can't be triaged until the box is opened.
 rules[#rules + 1] = function(item, data, ctx)
   if item.openable then return "use", "openable" end
@@ -137,7 +166,7 @@ local function uncollectedToy(itemID)
   return PlayerHasToy(itemID) == false
 end
 
--- 7. Uncollected collectable (decor, pet, mount, toy) -> use. Extra
+-- 8. Uncollected collectable (decor, pet, mount, toy) -> use. Extra
 -- copies of owned collectables fall through to the normal rules.
 rules[#rules + 1] = function(item, data, ctx)
   if not item.itemID then return nil end
@@ -147,7 +176,7 @@ rules[#rules + 1] = function(item, data, ctx)
   if uncollectedToy(item.itemID) then return "use", "uncollected toy" end
 end
 
--- 8. Bind-on-equip gear, market value above threshold -> sell.
+-- 9. Bind-on-equip gear, market value above threshold -> sell.
 -- Any expansion: a priced current BoE should list, not vendor.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
@@ -157,7 +186,7 @@ rules[#rules + 1] = function(item, data, ctx)
   if price and price > ns.config.get("ahThreshold") then return "sell", "worth listing" end
 end
 
--- 9. Old-expansion uncommon/rare gear -> disenchant. Epics fall through
+-- 10. Old-expansion uncommon/rare gear -> disenchant. Epics fall through
 -- to vendor so buyback stays available; greens/blues are safe to break.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
@@ -167,7 +196,7 @@ rules[#rules + 1] = function(item, data, ctx)
   return "disenchant", "disenchantable"
 end
 
--- 10. Quest item -> keep. Trashing dead quest items needs a quest-log
+-- 11. Quest item -> keep. Trashing dead quest items needs a quest-log
 -- lookup (TODO); until then these stay out of harm's way.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
@@ -176,18 +205,19 @@ rules[#rules + 1] = function(item, data, ctx)
   end
 end
 
--- 11. Has a vendor price -> vendor
+-- 12. Has a vendor price -> vendor
 rules[#rules + 1] = function(item, data, ctx)
   if data and data.sellPrice and data.sellPrice > 0 then return "vendor", "vendor price" end
 end
 
--- 12. Anything else -> keep. Destroy-by-default deleted Hearthstones;
+-- 13. Anything else -> keep. Destroy-by-default deleted Hearthstones;
 -- unclassified items wait for review instead.
 function ranking.rank(items)
   local ctx = {
     provider = ns.providers.get(),
     currentExp = GetExpansionLevel(),
     inSet = setItemIDs(),
+    professions = professionSkillIDs(),
   }
   local ranked = {}
   for _, item in ipairs(items) do

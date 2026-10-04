@@ -89,15 +89,16 @@ the verdict.
 3. Current-expansion consumable, reagent, or trade good -> KEEP
 4. On the never-sell list -> KEEP
 5. On the always-sell list -> SELL (valued) or VENDOR
-6. Openable container -> USE
-7. Uncollected collectable (decor, pet, mount, toy) -> USE
-8. Bind-on-equip gear, market value above threshold
+6. Profession tool for a profession you have -> KEEP
+7. Openable container -> USE
+8. Uncollected collectable (decor, pet, mount, toy) -> USE
+9. Bind-on-equip gear, market value above threshold
    -> SELL (auction house)
-9. Old-expansion uncommon or rare gear -> DISENCHANT (epics keep
+10. Old-expansion uncommon or rare gear -> DISENCHANT (epics keep
    buyback through VENDOR instead)
-10. Quest item -> KEEP (log check is future work)
-11. Has a vendor price -> VENDOR
-12. Anything else -> KEEP ("needs review"; never destroy by default)
+11. Quest item -> KEEP (log check is future work)
+12. Has a vendor price -> VENDOR
+13. Anything else -> KEEP ("needs review"; never destroy by default)
 
 ## The window
 
