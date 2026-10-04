@@ -4,3 +4,4 @@ ignore:
   - .github
   - SPEC.md
   - AGENTS.md
+  - tests
