@@ -216,13 +216,13 @@ end
 local function questTitleFromLink(link)
   if not link then return nil end
   if not questTip then
-    questTip = CreateFrame("GameTooltip", "WarbankAuditQuestTip", UIParent, "GameTooltipTemplate")
+    questTip = CreateFrame("GameTooltip", "VocWarbankQuestTip", UIParent, "GameTooltipTemplate")
   end
   questTip:SetOwner(UIParent, "ANCHOR_NONE")
   questTip:ClearLines()
   if not pcall(questTip.SetHyperlink, questTip, link) then return nil end
   for i = 2, questTip:NumLines() do
-    local line = _G["WarbankAuditQuestTipTextLeft" .. i]
+    local line = _G["VocWarbankQuestTipTextLeft" .. i]
     local text = line and line:GetText()
     if text and text ~= "" and completedTitles[text] then return text end
   end

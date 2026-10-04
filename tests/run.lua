@@ -1,4 +1,4 @@
--- Headless tests for Warbank Audit. No game client needed.
+-- Headless tests for VocWarbank. No game client needed.
 -- Run from the repo root:  lua tests/run.lua
 
 local mock = dofile("tests/mock.lua")
@@ -12,7 +12,7 @@ end
 
 local function loadAddon(file)
   local ns = mock.ns()
-  assert(loadfile(file))("WarbankAudit", ns)
+  assert(loadfile(file))("VocWarbank", ns)
   return ns
 end
 

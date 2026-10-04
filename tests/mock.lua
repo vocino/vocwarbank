@@ -1,4 +1,4 @@
--- Headless WoW API stubs for Warbank Audit tests.
+-- Headless WoW API stubs for VocWarbank tests.
 -- Installs fake globals; tests then load the addon files against them:
 --   local mock = dofile("tests/mock.lua")
 --   mock.install()

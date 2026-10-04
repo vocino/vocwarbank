@@ -87,7 +87,7 @@ function settings.init()
   panel = CreateFrame("Frame")
   local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
-  title:SetText("Warbank Audit")
+  title:SetText("VocWarbank")
   local y = -52
   y = y + makeDropdown(y, "Price source", settings.priceOptions,
     function() return ns.config.get("priceSource") end,
@@ -122,7 +122,7 @@ function settings.init()
   panel.OnRefresh = function()
     for _, refresh in ipairs(refreshers) do refresh() end
   end
-  category = Settings.RegisterCanvasLayoutCategory(panel, "Warbank Audit")
+  category = Settings.RegisterCanvasLayoutCategory(panel, "VocWarbank")
   Settings.RegisterAddOnCategory(category)
 end
 

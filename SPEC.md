@@ -1,11 +1,11 @@
-# Warbank Audit — Spec
+# VocWarbank — Spec
 
 A tiny WoW addon. Audit your stuff anywhere, see everything ranked by
 usefulness, draw a line, clean house.
 
 ## Name (decided 2026-10-02)
 
-**Warbank Audit.** "Warbank" is the player term for warband bank;
+**VocWarbank.** "Warbank" is the player term for warband bank;
 short, distinctive, no collision risk, "bank" in the name for
 CurseForge/Wago search. Listing description carries the keywords:
 "audit and clean your warband bank, bank, and bags."
@@ -39,7 +39,7 @@ eyeball hundreds of slots or never clean at all.
 Two layers. The UI never talks to third-party addons directly.
 
 ```
-WarbankAudit/
+VocWarbank/
   main.lua      boot, slash command
   config.lua    settings, never-sell lists
   providers.lua data layer behind one contract (Data)

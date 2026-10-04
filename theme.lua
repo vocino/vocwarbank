@@ -346,7 +346,7 @@ local function apply(style)
     current = "default"
     if not errorPrinted[style] then
       errorPrinted[style] = true
-      print("Warbank Audit: the " .. style .. " look failed (" .. tostring(err) .. "); using stock. See /ww theme.")
+      print("VocWarbank: the " .. style .. " look failed (" .. tostring(err) .. "); using stock. See /ww theme.")
     end
   end
   if refs.repaint then refs.repaint() end
@@ -374,7 +374,7 @@ function theme.status()
     baganator = bgrLoaded or false,
     baganatorSkin = baganatorSkinKey(),
     euiMaster = not (db and db.thirdPartySkinsOff),
-    euiAddon = not (perAddon and perAddon["WarbankAudit"] == false),
+    euiAddon = not (perAddon and perAddon["VocWarbank"] == false),
     error = skinError,
   }
 end

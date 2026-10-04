@@ -559,10 +559,10 @@ function ui.useQueued(list)
     end
   end
   if equippable > 0 then
-    print("Warbank Audit: skipped " .. equippable .. " equippable items (using would bind them).")
+    print("VocWarbank: skipped " .. equippable .. " equippable items (using would bind them).")
   end
   if skipped > 0 then
-    print("Warbank Audit: skipped " .. skipped .. " items outside bags (not supported yet).")
+    print("VocWarbank: skipped " .. skipped .. " items outside bags (not supported yet).")
   end
   ui.rescan(true)
   return n
@@ -582,7 +582,7 @@ function ui.vendorQueued(list)
     end
   end
   if skipped > 0 then
-    print("Warbank Audit: skipped " .. skipped .. " items outside bags (not supported yet).")
+    print("VocWarbank: skipped " .. skipped .. " items outside bags (not supported yet).")
   end
   ui.rescan(true)
   return n
@@ -603,7 +603,7 @@ local function mailToEnchanter(who, items)
   local i = 1
   while i <= #items do
     SendMailNameEditBox:SetText(who)
-    SendMailSubjectEditBox:SetText("Warbank Audit: disenchantables")
+    SendMailSubjectEditBox:SetText("VocWarbank: disenchantables")
     local attached = 0
     while attached < MAIL_BATCH and i <= #items do
       local item = items[i]
@@ -627,7 +627,7 @@ local function mailToEnchanter(who, items)
     end
   end
   ui.rescan(true)
-  print("Warbank Audit: mailed " .. sent .. " items to " .. who
+  print("VocWarbank: mailed " .. sent .. " items to " .. who
     .. (skipped > 0 and " (skipped " .. skipped .. " unmailable)" or "") .. ".")
   return sent
 end
@@ -637,7 +637,7 @@ function ui.disenchantQueued(list)
   if #list == 0 then return 0 end
   local who = ns.config.get("enchanter")
   if not who or who == "" then
-    print("Warbank Audit: " .. #list .. " items to disenchant — set your enchanter with"
+    print("VocWarbank: " .. #list .. " items to disenchant — set your enchanter with"
       .. " /ww enchanter <name>, or disenchant them directly.")
     for _, entry in ipairs(list) do print("  " .. ui.linkName(entry.item.link)) end
     return #list
@@ -650,15 +650,15 @@ function ui.disenchantQueued(list)
     end
   end
   if #mailable == 0 then
-    print("Warbank Audit: nothing mailable — the disenchant queue is all bank/warbank items.")
+    print("VocWarbank: nothing mailable — the disenchant queue is all bank/warbank items.")
     return 0
   end
   if not atMailbox() then
-    print("Warbank Audit: " .. #mailable .. " items ready for " .. who
+    print("VocWarbank: " .. #mailable .. " items ready for " .. who
       .. " — open a mailbox to send them.")
     return #mailable
   end
-  StaticPopup_Show("WARBANKAUDIT_CONFIRM_MAIL", #mailable, who, { who = who, items = mailable })
+  StaticPopup_Show("VOCWARBANK_CONFIRM_MAIL", #mailable, who, { who = who, items = mailable })
   return #mailable
 end
 
@@ -669,10 +669,10 @@ function ui.sellQueued(list)
   if C_AddOns.IsAddOnLoaded("TradeSkillMaster") then helper = "TSM"
   elseif C_AddOns.IsAddOnLoaded("Auctionator") then helper = "Auctionator" end
   if helper then
-    print("Warbank Audit: " .. #list .. " items ready — list them in " .. helper
+    print("VocWarbank: " .. #list .. " items ready — list them in " .. helper
       .. ". (Automatic handoff coming in a later version.)")
   else
-    print("Warbank Audit: " .. #list .. " items flagged for manual listing (no auction addon found).")
+    print("VocWarbank: " .. #list .. " items flagged for manual listing (no auction addon found).")
   end
   for _, entry in ipairs(list) do print("  " .. ui.linkName(entry.item.link)) end
   return #list
@@ -699,12 +699,12 @@ function ui.destroyQueued(list)
   end
   ui.rescan(true)
   if pending then
-    print("Warbank Audit: paused for Blizzard's confirmation — click Trash again to continue"
+    print("VocWarbank: paused for Blizzard's confirmation — click Trash again to continue"
       .. " (put the item back first if you cancelled).")
   elseif skipped > 0 then
-    print("Warbank Audit: destroyed " .. n .. ", skipped " .. skipped .. " outside bags.")
+    print("VocWarbank: destroyed " .. n .. ", skipped " .. skipped .. " outside bags.")
   else
-    print("Warbank Audit: destroyed " .. n .. " items.")
+    print("VocWarbank: destroyed " .. n .. " items.")
   end
   return n
 end
@@ -715,7 +715,7 @@ local function confirmTrash()
     if entry.verdict == "trash" or entry.verdict == "destroy" then n = n + 1 end
   end
   if n == 0 then return end
-  StaticPopup_Show("WARBANKAUDIT_CONFIRM_TRASH", n)
+  StaticPopup_Show("VOCWARBANK_CONFIRM_TRASH", n)
 end
 
 function ui.toggleKey(key)
@@ -818,7 +818,7 @@ end
 
 function ui.init()
   if window then return end
-  window = CreateFrame("Frame", "WarbankAuditWindow", UIParent, "BasicFrameTemplateWithInset")
+  window = CreateFrame("Frame", "VocWarbankWindow", UIParent, "BasicFrameTemplateWithInset")
   window:SetSize(660, 640)
   window:SetPoint("CENTER")
   window:SetMovable(true)
@@ -827,8 +827,8 @@ function ui.init()
   window:SetScript("OnDragStart", window.StartMoving)
   window:SetScript("OnDragStop", window.StopMovingOrSizing)
   window:Hide()
-  if UISpecialFrames then table.insert(UISpecialFrames, "WarbankAuditWindow") end
-  window.TitleText:SetText("Warbank Audit")
+  if UISpecialFrames then table.insert(UISpecialFrames, "VocWarbankWindow") end
+  window.TitleText:SetText("VocWarbank")
   closeBtn = CreateFrame("Button", nil, window, "UIPanelCloseButton")
   closeBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -4, -4)
   closeBtn:SetScript("OnClick", function() window:Hide() end)
@@ -905,7 +905,7 @@ function ui.init()
   end)
   sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   ns.theme.styleButton(sortBtn, true)
-  scroll = CreateFrame("ScrollFrame", "WarbankAuditScroll", window, "UIPanelScrollFrameTemplate")
+  scroll = CreateFrame("ScrollFrame", "VocWarbankScroll", window, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", window, "TOPLEFT", 12, -100)
   scroll:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -30, 86)
   child = CreateFrame("Frame", nil, scroll)
@@ -948,7 +948,7 @@ function ui.init()
     ns.theme.styleButton(b, true)
     buttons[def[1]] = b
   end
-  StaticPopupDialogs["WARBANKAUDIT_CONFIRM_TRASH"] = {
+  StaticPopupDialogs["VOCWARBANK_CONFIRM_TRASH"] = {
     text = "Destroy %d queued items? This cannot be undone.",
     button1 = YES,
     button2 = NO,
@@ -957,7 +957,7 @@ function ui.init()
     whileDead = true,
     hideOnEscape = true,
   }
-  StaticPopupDialogs["WARBANKAUDIT_CONFIRM_MAIL"] = {
+  StaticPopupDialogs["VOCWARBANK_CONFIRM_MAIL"] = {
     text = "Mail %d items to %s?",
     button1 = YES,
     button2 = NO,
@@ -1028,7 +1028,7 @@ function ui.init()
   end)
   ns.theme.decide()
   if EllesmereUI and EllesmereUI.RegisterSkin then
-    EllesmereUI.RegisterSkin("WarbankAudit", ns.theme.onEUISkin)
+    EllesmereUI.RegisterSkin("VocWarbank", ns.theme.onEUISkin)
   end
 end
 

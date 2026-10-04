@@ -7,8 +7,8 @@ local boot = CreateFrame("Frame")
 boot:RegisterEvent("ADDON_LOADED")
 boot:SetScript("OnEvent", function(_, _, addon)
   if addon ~= name then return end
-  WarbankAuditDB = WarbankAuditDB or {}
-  ns.db = WarbankAuditDB
+  VocWarbankDB = VocWarbankDB or {}
+  ns.db = VocWarbankDB
   ns.config.init()
   ns.providers.init()
   ns.ui.init()
@@ -17,7 +17,7 @@ boot:SetScript("OnEvent", function(_, _, addon)
 end)
 
 local function help()
-  print("Warbank Audit: /ww [source <auto|vendor|auctionator|tsm|oribos>] [theme]"
+  print("VocWarbank: /ww [source <auto|vendor|auctionator|tsm|oribos>] [theme]"
     .. " [inventory <auto|blizzard|syndicator>] [scope <warbank|bank|bags|all>]"
     .. " [threshold <gold>] [enchanter <name>] [never|always|unnever|unalways <item>]"
     .. " [auto <vendor|auction> <on|off>] [config]")
@@ -26,9 +26,9 @@ end
 local priceSources = { auto = true, vendor = true, auctionator = true, tsm = true, oribos = true }
 local inventorySources = { auto = true, blizzard = true, syndicator = true }
 
-SLASH_WARBANKAUDIT1 = "/ww"
-SLASH_WARBANKAUDIT2 = "/warbankaudit"
-SlashCmdList.WARBANKAUDIT = function(msg)
+SLASH_VOCWARBANK1 = "/ww"
+SLASH_VOCWARBANK2 = "/vocwarbank"
+SlashCmdList.VOCWARBANK = function(msg)
   local cmd, rest = (msg or ""):match("^(%S*)%s*(.-)%s*$")
   cmd = cmd:lower()
   if cmd == "" then
@@ -39,55 +39,55 @@ SlashCmdList.WARBANKAUDIT = function(msg)
     local key = (which == "vendor" or which == "vendors" or which == "merchant") and "autoOpenVendor"
       or ((which == "auction" or which == "ah" or which == "auctionhouse") and "autoOpenAuction" or nil)
     if rest == "" then
-      print("Warbank Audit: auto-open at vendors is "
+      print("VocWarbank: auto-open at vendors is "
         .. (ns.config.get("autoOpenVendor") and "ON" or "off")
         .. ", at the auction house " .. (ns.config.get("autoOpenAuction") and "ON" or "off") .. ".")
     elseif key and (val == "on" or val == "off") then
       ns.config.set(key, val == "on")
-      print("Warbank Audit: auto-open " .. (key == "autoOpenVendor" and "at vendors" or "at the auction house")
+      print("VocWarbank: auto-open " .. (key == "autoOpenVendor" and "at vendors" or "at the auction house")
         .. " " .. (val == "on" and "enabled." or "disabled."))
     else
-      print("Warbank Audit: /ww auto <vendor|auction> <on|off>")
+      print("VocWarbank: /ww auto <vendor|auction> <on|off>")
     end
   elseif cmd == "config" then
     ns.settings.open()
   elseif cmd == "theme" then
     local s = ns.theme.status()
-    print("Warbank Audit look: " .. s.look
+    print("VocWarbank look: " .. s.look
       .. " (eui:" .. (s.euiFacade and "yes" or "no")
       .. " baganator:" .. (s.baganator and s.baganatorSkin or "absent") .. ")")
-    if not s.euiMaster then print("Warbank Audit: EUI third-party skins are OFF (master toggle).") end
-    if not s.euiAddon then print("Warbank Audit: EUI skin for WarbankAudit is OFF (per-addon toggle).") end
-    if s.error then print("Warbank Audit: last skin error [" .. s.error.style .. "]: " .. s.error.err) end
+    if not s.euiMaster then print("VocWarbank: EUI third-party skins are OFF (master toggle).") end
+    if not s.euiAddon then print("VocWarbank: EUI skin for VocWarbank is OFF (per-addon toggle).") end
+    if s.error then print("VocWarbank: last skin error [" .. s.error.style .. "]: " .. s.error.err) end
   elseif cmd == "source" and priceSources[rest] then
     ns.config.set("priceSource", rest)
     ns.providers.init()
-    print("Warbank Audit: price source set to " .. rest .. ".")
+    print("VocWarbank: price source set to " .. rest .. ".")
   elseif cmd == "inventory" and inventorySources[rest] then
     ns.config.set("inventorySource", rest)
-    print("Warbank Audit: warbank source set to " .. rest .. ".")
+    print("VocWarbank: warbank source set to " .. rest .. ".")
   elseif cmd == "scope" and (rest == "warbank" or rest == "bank" or rest == "bags" or rest == "all") then
     ns.config.set("scope", rest)
-    print("Warbank Audit: scope set to " .. rest .. ".")
+    print("VocWarbank: scope set to " .. rest .. ".")
   elseif cmd == "threshold" and tonumber(rest) and tonumber(rest) > 0 then
     ns.config.set("ahThreshold", math.floor(tonumber(rest) * 10000))
-    print("Warbank Audit: auction threshold set to " .. rest .. "g.")
+    print("VocWarbank: auction threshold set to " .. rest .. "g.")
   elseif cmd == "enchanter" and rest ~= "" then
     ns.config.set("enchanter", rest)
-    print("Warbank Audit: enchanter set to " .. rest .. ".")
+    print("VocWarbank: enchanter set to " .. rest .. ".")
   elseif cmd == "never" or cmd == "unnever" then
     local id = ns.config.parseItemID(rest)
-    if not id then print("Warbank Audit: give an item link or ID.")
+    if not id then print("VocWarbank: give an item link or ID.")
     else
       ns.config.setListItem("neverSell", id, cmd == "never")
-      print("Warbank Audit: item " .. id .. (cmd == "never" and " will always be kept." or " removed from never-sell."))
+      print("VocWarbank: item " .. id .. (cmd == "never" and " will always be kept." or " removed from never-sell."))
     end
   elseif cmd == "always" or cmd == "unalways" then
     local id = ns.config.parseItemID(rest)
-    if not id then print("Warbank Audit: give an item link or ID.")
+    if not id then print("VocWarbank: give an item link or ID.")
     else
       ns.config.setListItem("alwaysSell", id, cmd == "always")
-      print("Warbank Audit: item " .. id .. (cmd == "always" and " will always sell." or " removed from always-sell."))
+      print("VocWarbank: item " .. id .. (cmd == "always" and " will always sell." or " removed from always-sell."))
     end
   else
     help()

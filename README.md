@@ -1,7 +1,7 @@
-# Warbank Audit
+# VocWarbank
 
 Every expansion leaves junk in your warbank: old reagents, dead
-quest items, gear with no purpose. Warbank Audit scans your warband
+quest items, gear with no purpose. VocWarbank scans your warband
 bank, bank, or bags, ranks everything by usefulness, and lets you
 draw the line — everything below it gets vendored, disenchanted,
 mailed, or trashed. You confirm every action; it never sells or
@@ -10,7 +10,7 @@ destroys anything on its own.
 ## Installation
 
 Copy the folder into `Interface/AddOns` and rename it to
-`WarbankAudit` (the folder name must match the `.toc` file).
+`VocWarbank` (the folder name must match the `.toc` file).
 CurseForge and Wago packages are coming later.
 
 ## Usage
