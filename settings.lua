@@ -117,8 +117,8 @@ function settings.init()
   note:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
   note:SetWidth(400)
   note:SetJustifyH("LEFT")
-  note:SetText("Never/always-sell lists live on the slash line: /ww never <item>, "
-    .. "/ww always <item>, /ww unnever <item>, /ww unalways <item>.")
+  note:SetText("Never/always-sell lists live on the slash line: /vw never <item>, "
+    .. "/vw always <item>, /vw unnever <item>, /vw unalways <item>.")
   panel.OnRefresh = function()
     for _, refresh in ipairs(refreshers) do refresh() end
   end

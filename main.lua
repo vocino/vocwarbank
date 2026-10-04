@@ -16,7 +16,7 @@ boot:SetScript("OnEvent", function(_, _, addon)
 end)
 
 local function help()
-  print("VocWarbank: /ww [source <auto|vendor|auctionator|tsm|oribos>] [theme]"
+  print("VocWarbank: /vw [source <auto|vendor|auctionator|tsm|oribos>] [theme]"
     .. " [inventory <auto|blizzard|syndicator>] [scope <warbank|bank|bags|all>]"
     .. " [threshold <gold>] [enchanter <name>] [never|always|unnever|unalways <item>]"
     .. " [auto <vendor|auction> <on|off>] [config]")
@@ -25,7 +25,7 @@ end
 local priceSources = { auto = true, vendor = true, auctionator = true, tsm = true, oribos = true }
 local inventorySources = { auto = true, blizzard = true, syndicator = true }
 
-SLASH_VOCWARBANK1 = "/ww"
+SLASH_VOCWARBANK1 = "/vw"
 SLASH_VOCWARBANK2 = "/vocwarbank"
 SlashCmdList.VOCWARBANK = function(msg)
   local cmd, rest = (msg or ""):match("^(%S*)%s*(.-)%s*$")
@@ -46,7 +46,7 @@ SlashCmdList.VOCWARBANK = function(msg)
       print("VocWarbank: auto-open " .. (key == "autoOpenVendor" and "at vendors" or "at the auction house")
         .. " " .. (val == "on" and "enabled." or "disabled."))
     else
-      print("VocWarbank: /ww auto <vendor|auction> <on|off>")
+      print("VocWarbank: /vw auto <vendor|auction> <on|off>")
     end
   elseif cmd == "config" then
     ns.settings.open()

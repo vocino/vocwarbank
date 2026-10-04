@@ -197,7 +197,11 @@ function mock.install()
 
   _G.CreateFrame = function(ftype, name)
     if ftype == "GameTooltip" then return mock.tooltip(name) end
-    return {}
+    local frame = {}
+    function frame:RegisterEvent() end
+    function frame:UnregisterEvent() end
+    function frame:SetScript() end
+    return frame
   end
 end
 

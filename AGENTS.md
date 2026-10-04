@@ -2,7 +2,7 @@
 
 ## Code Map
 
-- `main.lua`: boot, slash command (`/ww`, `/vocwarbank`)
+- `main.lua`: boot, slash command (`/vw`, `/vocwarbank`)
 - `config.lua`: settings, never/always-sell lists
 - `providers.lua`: price/expansion data layer behind one contract
 - `scanner.lua`: container-agnostic scan (warbank, bank, bags)

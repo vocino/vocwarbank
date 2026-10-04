@@ -39,7 +39,7 @@ eyeball hundreds of slots or never clean at all.
 - The ranking core is identical for every scope; only the item
   source changes.
 - One window: ranked list, draggable cutoff line, action queue.
-- `/ww` slash command. No minimap button.
+- `/vw` slash command. No minimap button.
 
 ## Architecture
 
@@ -153,7 +153,7 @@ auto-enables its EllesmereUI skin then, so all three match).
 Quality and verdict colors stay ours in every look — they are
 data, not chrome. Looks re-resolve on every scan; EUI is sticky
 until reload by the suite's own design. A failed look falls back
-to stock, says so once in chat, and retries on the next scan; `/ww
+to stock, says so once in chat, and retries on the next scan; `/vw
 theme` reports the live look, the EUI toggles, and any skin error.
 
 ## Actions
@@ -169,13 +169,13 @@ theme` reports the live look, the EUI toggles, and any skin error.
 
 ## Settings
 
-Settings are account-wide, edited in the addon panel (`/ww config`)
+Settings are account-wide, edited in the addon panel (`/vw config`)
 or on the slash line.
 
 - Price source: Auto / Vendor / Auctionator / TSM / Oribos Exchange.
 - Warbank source: Auto / Syndicator / Blizzard API.
 - TSM price key (default DBMarket), enchanter name, auction threshold.
-- Never/always-sell lists via /ww never|always <item>.
+- Never/always-sell lists via /vw never|always <item>.
 - Auto-open at vendors / the auction house (both off by default).
   The window docks beside the merchant or AH frame when it auto-opens.
   Vendor auto-open pre-selects the vendor filter.

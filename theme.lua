@@ -346,7 +346,7 @@ local function apply(style)
     current = "default"
     if not errorPrinted[style] then
       errorPrinted[style] = true
-      print("VocWarbank: the " .. style .. " look failed (" .. tostring(err) .. "); using stock. See /ww theme.")
+      print("VocWarbank: the " .. style .. " look failed (" .. tostring(err) .. "); using stock. See /vw theme.")
     end
   end
   if refs.repaint then refs.repaint() end
@@ -361,7 +361,7 @@ function theme.decide()
   else apply("default") end
 end
 
--- Read-only diagnosis for /ww theme. The EllesmereUIDB keys mirror
+-- Read-only diagnosis for /vw theme. The EllesmereUIDB keys mirror
 -- the suite's own toggle checks (see its SkinAPI gating).
 function theme.status()
   local db = _G and _G.EllesmereUIDB or nil

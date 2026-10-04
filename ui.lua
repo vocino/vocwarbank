@@ -638,7 +638,7 @@ function ui.disenchantQueued(list)
   local who = ns.config.get("enchanter")
   if not who or who == "" then
     print("VocWarbank: " .. #list .. " items to disenchant — set your enchanter with"
-      .. " /ww enchanter <name>, or disenchant them directly.")
+      .. " /vw enchanter <name>, or disenchant them directly.")
     for _, entry in ipairs(list) do print("  " .. ui.linkName(entry.item.link)) end
     return #list
   end

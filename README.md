@@ -17,7 +17,7 @@ the folder into `Interface/AddOns` and rename it to `VocWarbank`
 ## Usage
 
 ```
-/ww
+/vw
 ```
 
 Pick a scope (warbank, bank, bags) and browse the icon grid, grouped
@@ -26,11 +26,11 @@ goes, review the dry-run summary, hit go. Uncollected appearances
 and equipment sets stay, current-expansion mats stay, everything
 else gets a verdict: use, sell, disenchant, vendor, trash, or destroy.
 
-Tune it in the settings panel (`/ww config`) or on the slash line:
-`/ww source <auto|vendor|auctionator|tsm|oribos>`, `/ww inventory
-<auto|blizzard|syndicator>`, `/ww scope <warbank|bank|bags|all>`,
-`/ww threshold <gold>`, `/ww enchanter <name>`, `/ww never <item>`,
-`/ww auto <vendor|auction> <on|off>`.
+Tune it in the settings panel (`/vw config`) or on the slash line:
+`/vw source <auto|vendor|auctionator|tsm|oribos>`, `/vw inventory
+<auto|blizzard|syndicator>`, `/vw scope <warbank|bank|bags|all>`,
+`/vw threshold <gold>`, `/vw enchanter <name>`, `/vw never <item>`,
+`/vw auto <vendor|auction> <on|off>`.
 
 ## How it works
 

@@ -175,5 +175,12 @@ sns = loadAddon("scanner.lua")
 out = sns.scanner.scan("bank")
 check("empty bank scans clean", #out == 0)
 
+-- main.lua: slash registration
+_G.SlashCmdList = _G.SlashCmdList or {}
+loadAddon("main.lua")
+check("short slash is /vw", _G.SLASH_VOCWARBANK1 == "/vw")
+check("long slash is /vocwarbank", _G.SLASH_VOCWARBANK2 == "/vocwarbank")
+check("slash handler installed", type(_G.SlashCmdList.VOCWARBANK) == "function")
+
 print(string.format("%d passed, %d failed", pass, fail))
 os.exit(fail > 0 and 1 or 0)
