@@ -68,8 +68,8 @@ order follows install base: Auctionator -> TSM -> Oribos Exchange
 2. **TSM** (optional). Evaluates the configured price key (DBMarket).
 3. **Oribos Exchange** (optional). Realm market value, region fallback.
 4. **Vendor** (always available). Sell price ends every cascade.
-Warbank contents come from Syndicator (Baganator's data) when
-present; Blizzard bank scans are future work.
+Warbank contents come from Syndicator (Baganator's data) when present;
+otherwise the Blizzard account-bank bags (empty unless the bank is open).
 All external calls are presence-gated and pcall-guarded, so a
 broken pricing addon can never break a scan.
 The user picks price and warbank sources in settings (Auto by
@@ -109,6 +109,7 @@ the verdict.
   dot; hover for name, value, and reason tag.
 - Selection: click icons or group headers to queue them. Verdict
   filter tabs narrow the grid.
+- The grid live-updates on inventory changes, preserving the queue.
 - Footer: dry-run summary ("142 items, 38 slots, ~12,400g"), then per-group action buttons.
 
 ## Looks
@@ -175,7 +176,7 @@ or on the slash line.
 
 - Syndicator warbank shape needs in-game verification (no local install).
 - TSM/Auctionator/Oribos calls need in-game verification (no local installs).
-- Blizzard C_Bank path for warbank (Syndicator covers it meanwhile).
+- Character bank slots via C_Container bank bags (scanBank TODO).
 - CurseForge and Wago publishing: after v1 works, not before.
 - Decor owned-count semantics need in-game verification (bag items
   vs storage counts).

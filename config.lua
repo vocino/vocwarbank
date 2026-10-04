@@ -13,6 +13,9 @@ local defaults = {
   scope = "bags",            -- warbank | bank | bags | all
   autoOpenVendor = false,    -- pop up beside the merchant window
   autoOpenAuction = false,   -- pop up beside the auction house
+  sortMode = "off",          -- off | quality | value | name
+  sortReverse = false,       -- flip the sort comparator
+  collapsedGroups = {},      -- section key -> true
 }
 
 function config.init()

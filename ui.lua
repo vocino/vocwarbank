@@ -75,7 +75,7 @@ end
 
 function ui.entryKey(entry)
   local item = entry.item
-  return (item.scope or "?") .. ":" .. (item.bag or "?") .. ":" .. (item.slot or "?")
+  return (item.scope or "?") .. ":" .. (item.bag or item.tab or "?") .. ":" .. (item.slot or item.index or "?")
 end
 
 -- Sections for the grid. mode is "category" or "expansion", filter is
@@ -216,11 +216,12 @@ local function paintIcon(r, entry)
   local item, detail = entry.item, entry.detail or {}
   r.key = ui.entryKey(entry)
   r.entry = entry
-  local iconID = item.itemID and C_Item.GetItemIconByID(item.itemID) or nil
+  local iconID = item.icon or (item.itemID and C_Item.GetItemIconByID(item.itemID)) or nil
   if iconID then r.icon:SetTexture(iconID)
   else r.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") end
-  local q = QUALITY_COLOR[detail.quality] or QUALITY_COLOR[1]
-  ns.theme.paintIcon(r, detail.quality or 1, q)
+  local qual = detail.quality or item.quality or 1
+  local q = QUALITY_COLOR[qual] or QUALITY_COLOR[1]
+  ns.theme.paintIcon(r, qual, q)
   local v = VERDICT_COLOR[entry.verdict] or VERDICT_COLOR.keep
   r.dot:SetColorTexture(v[1], v[2], v[3], 1)
   if (item.count or 1) > 1 then r.count:SetText(item.count) r.count:Show()
@@ -376,7 +377,7 @@ function ui.useQueued(list)
   if skipped > 0 then
     print("Warbank Audit: skipped " .. skipped .. " items outside bags (not supported yet).")
   end
-  ui.rescan()
+  ui.rescan(true)
   return n
 end
 
@@ -396,7 +397,7 @@ function ui.vendorQueued(list)
   if skipped > 0 then
     print("Warbank Audit: skipped " .. skipped .. " items outside bags (not supported yet).")
   end
-  ui.rescan()
+  ui.rescan(true)
   return n
 end
 
@@ -452,7 +453,7 @@ function ui.destroyQueued(list)
       end
     end
   end
-  ui.rescan()
+  ui.rescan(true)
   if pending then
     print("Warbank Audit: paused for Blizzard's confirmation — click Trash again to continue"
       .. " (put the item back first if you cancelled).")
@@ -546,15 +547,21 @@ local function autoShow(frame, defaultFilter)
   return docked
 end
 
-function ui.rescan()
+function ui.rescan(keepSelection)
   if not window then ui.init() end
-  selected = {}
   merchantOpen = MerchantFrame and MerchantFrame:IsShown() or false
   local provider = ns.providers.get()
   local ranked = ns.ranking.rank(ns.scanner.scan(ns.config.get("scope")))
   for _, entry in ipairs(ranked) do
     local price = provider and provider.GetMarketValue(entry.item.link) or nil
     entry.value = price and price * (entry.item.count or 1) or nil
+  end
+  if keepSelection then
+    local present = {}
+    for _, entry in ipairs(ranked) do present[ui.entryKey(entry)] = true end
+    for k in pairs(selected) do if not present[k] then selected[k] = nil end end
+  else
+    selected = {}
   end
   ns.activeSource = ns.providers.describe()
   ns.theme.decide()
@@ -651,6 +658,8 @@ function ui.init()
   ctx:RegisterEvent("MERCHANT_SHOW")
   ctx:RegisterEvent("MERCHANT_CLOSED")
   ctx:RegisterEvent("AUCTION_HOUSE_SHOW")
+  ctx:RegisterEvent("BAG_UPDATE_DELAYED")
+  ctx:RegisterEvent("BANKFRAME_OPENED")
   ctx:SetScript("OnEvent", function(_, event)
     if event == "MERCHANT_SHOW" then
       merchantOpen = true
@@ -671,9 +680,22 @@ function ui.init()
           end)
         end
       end
+    elseif event == "BAG_UPDATE_DELAYED" or event == "BANKFRAME_OPENED" then
+      if window:IsShown() then ui.rescan(true) end
     end
     if window:IsShown() then updateTexts() end
   end)
+  -- Live inventory updates. Blizzard events cover bags and the bank;
+  -- Syndicator callbacks (same names Baganator uses) cover its cached
+  -- scopes, including the warbank while offline. All preserve selection.
+  if Syndicator and Syndicator.CallbackRegistry
+      and Syndicator.CallbackRegistry.RegisterCallback then
+    local registry = Syndicator.CallbackRegistry
+    pcall(registry.RegisterCallback, registry, "BagCacheUpdate",
+      function() if window:IsShown() then ui.rescan(true) end end)
+    pcall(registry.RegisterCallback, registry, "WarbandBankCacheUpdate",
+      function() if window:IsShown() then ui.rescan(true) end end)
+  end
   ns.theme.init({
     window = window, close = closeBtn, scroll = scroll,
     title = window.TitleText, headPool = headPool, iconPool = iconPool,
