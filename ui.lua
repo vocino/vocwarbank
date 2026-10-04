@@ -535,9 +535,11 @@ local function anchorBeside(frame)
 end
 
 -- Pop the window up for a merchant/AH visit. Never repositions an
--- already-open window. Returns nil when nothing was opened.
-local function autoShow(frame)
+-- already-open window. An optional verdict pre-selects the filter.
+-- Returns nil when nothing was opened.
+local function autoShow(frame, defaultFilter)
   if window and window:IsShown() then return nil end
+  if defaultFilter then filter = defaultFilter end
   ui.rescan()
   local docked = anchorBeside(frame)
   window:Show()
@@ -652,7 +654,7 @@ function ui.init()
   ctx:SetScript("OnEvent", function(_, event)
     if event == "MERCHANT_SHOW" then
       merchantOpen = true
-      if ns.config.get("autoOpenVendor") then autoShow(MerchantFrame) end
+      if ns.config.get("autoOpenVendor") then autoShow(MerchantFrame, "vendor") end
     elseif event == "MERCHANT_CLOSED" then
       merchantOpen = false
     elseif event == "AUCTION_HOUSE_SHOW" then

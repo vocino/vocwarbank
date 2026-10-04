@@ -159,6 +159,7 @@ or on the slash line.
 - Never/always-sell lists via /ww never|always <item>.
 - Auto-open at vendors / the auction house (both off by default).
   The window docks beside the merchant or AH frame when it auto-opens.
+  Vendor auto-open pre-selects the vendor filter.
 
 ## Build notes
 
