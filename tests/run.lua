@@ -37,7 +37,7 @@ mock.reset()
 mock.item(101, { classID = 2, equipLoc = "INVTYPE_HEAD", quality = 3, expansionID = 11 })
 mock.transmog[101] = true
 r = rank(101)
-check("collected look falls through", r.verdict == "keep" and r.reason == "needs review")
+check("collected look falls past rule 1", r.verdict == "keep" and r.reason == "current gear")
 
 -- 2. equipment set -> keep
 mock.reset()
@@ -57,6 +57,22 @@ mock.reset()
 mock.item(103, { classID = 7, expansionID = 9, sellPrice = 50 })
 r = rank(103)
 check("old tradegood vendors", r.verdict == "vendor" and r.reason == "vendor price")
+
+-- 3. current soulbound gear keeps even with a collected look and a price
+mock.reset()
+mock.item(113, { classID = 4, equipLoc = "INVTYPE_CHEST", bindType = 1,
+  quality = 4, expansionID = 11, sellPrice = 500 })
+mock.transmog[113] = true
+r = rank(113)
+check("current soulbound gear keeps", r.verdict == "keep" and r.reason == "current gear")
+
+-- 3. current bind-on-equip gear still flows past the keep rule
+mock.reset()
+mock.item(114, { classID = 2, equipLoc = "INVTYPE_HEAD", bindType = 2,
+  quality = 3, expansionID = 11, sellPrice = 100 })
+mock.transmog[114] = true
+r = rank(114)
+check("cheap current BoE vendors", r.verdict == "vendor" and r.reason == "vendor price")
 
 -- 4/5. never-sell / always-sell
 mock.reset()
@@ -78,7 +94,18 @@ mock.cfg.alwaysSell[105] = true
 r = rank(105)
 check("always-sell without value vendors", r.verdict == "vendor")
 
--- 6. profession tool for a known profession -> keep
+-- 6. currency token keeps despite an old stamp and a vendor price
+mock.reset()
+mock.item(137642, { classID = 15, expansionID = 6, sellPrice = 1 })
+r = rank(137642)
+check("mark of honor keeps", r.verdict == "keep" and r.reason == "currency token")
+
+mock.reset()
+mock.item(137643, { classID = 15, expansionID = 6, sellPrice = 1 })
+r = rank(137643)
+check("lookalike token vendors", r.verdict == "vendor" and r.reason == "vendor price")
+
+-- 7. profession tool for a known profession -> keep
 mock.reset()
 mock.item(106, { classID = 19, subclassID = 0 })
 mock.professionIndices = { 1 }
@@ -86,13 +113,13 @@ mock.professionSkills = { [1] = 164 }
 r = rank(106)
 check("profession tool keeps", r.verdict == "keep" and r.reason == "profession tool")
 
--- 7. openable -> use
+-- 8. openable -> use
 mock.reset()
 mock.item(107, { classID = 0, expansionID = 9 })
 r = rank(107, { openable = true })
 check("openable uses", r.verdict == "use" and r.reason == "openable")
 
--- 8. uncollected pet -> use; collected pet falls through
+-- 9. uncollected pet -> use; collected pet falls through
 mock.reset()
 mock.item(108, { classID = 0, expansionID = 9 })
 mock.pets[108] = { speciesID = 42, owned = 0 }
@@ -105,7 +132,19 @@ mock.pets[108] = { speciesID = 42, owned = 3 }
 r = rank(108)
 check("collected pet falls through", r.verdict == "vendor")
 
--- 9. BoE above threshold -> sell
+-- 9. housing decor always uses, priced or not
+mock.reset()
+mock.item(501, { classID = 20, expansionID = 9, sellPrice = 25 })
+mock.decor[501] = true
+r = rank(501)
+check("decor uses", r.verdict == "use" and r.reason == "housing decor")
+
+mock.reset()
+mock.item(501, { classID = 20, expansionID = 9, sellPrice = 25 })
+r = rank(501)
+check("non-decor housing-class item falls through", r.verdict == "vendor")
+
+-- 10. BoE above threshold -> sell
 mock.reset()
 mock.item(109, { classID = 2, equipLoc = "INVTYPE_HEAD", bindType = 2, quality = 3, expansionID = 11 })
 mock.transmog[109] = true
@@ -113,14 +152,14 @@ mock.prices[109] = 500000
 r = rank(109)
 check("valuable BoE sells", r.verdict == "sell" and r.reason == "worth listing")
 
--- 10. old green -> disenchant
+-- 11. old green -> disenchant
 mock.reset()
 mock.item(110, { classID = 4, equipLoc = "INVTYPE_CHEST", quality = 2, expansionID = 9 })
 mock.transmog[110] = true
 r = rank(110)
 check("old green disenchants", r.verdict == "disenchant" and r.reason == "disenchantable")
 
--- 11. quest: completed -> destroy, live -> keep
+-- 12. quest: completed -> destroy, live -> keep
 mock.reset()
 mock.item(111, { classID = 12, expansionID = 9 })
 mock.completedQuests[77] = "The Nexus Job"
@@ -134,13 +173,13 @@ mock.tooltips[111] = { "Scrap of Notes", "The Ongoing Job" }
 r = rank(111)
 check("live quest item keeps", r.verdict == "keep" and r.reason == "quest item")
 
--- 12. vendor price -> vendor
+-- 13. vendor price -> vendor
 mock.reset()
 mock.item(112, { classID = 7, expansionID = 9, sellPrice = 150 })
 r = rank(112)
 check("vendor price vendors", r.verdict == "vendor" and r.reason == "vendor price")
 
--- 13. unknown item -> keep for review
+-- 14. unknown item -> keep for review
 mock.reset()
 local ns = loadAddon("ranking.lua")
 r = ns.ranking.rank({ { itemID = 99999, link = "|Hitem:99999|h[x]|h|r",

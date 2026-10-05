@@ -107,12 +107,18 @@ rules[#rules + 1] = function(item, data, ctx)
   if item.itemID and ctx.inSet[item.itemID] then return "keep", "in equipment set" end
 end
 
--- 3. Current-expansion consumable, reagent, or trade good -> keep
+-- 3. Current-expansion consumable, reagent, trade good, or gear
+-- -> keep. Gear carves out bind-on-equip: priced BoEs list at rule
+-- 10, so only gear that can never list keeps here.
 rules[#rules + 1] = function(item, data, ctx)
   if not data or data.expansionID ~= ctx.currentExp then return nil end
   if data.classID == CLASS_CONSUMABLE or data.classID == CLASS_REAGENT
       or data.classID == CLASS_TRADEGOODS then
     return "keep", "current mats"
+  end
+  if (data.classID == CLASS_WEAPON or data.classID == CLASS_ARMOR)
+      and data.bindType ~= BIND_EQUIP then
+    return "keep", "current gear"
   end
 end
 
@@ -130,7 +136,21 @@ rules[#rules + 1] = function(item, data, ctx)
   end
 end
 
--- 6. Profession tool for a profession you have -> keep. Character-
+-- Evergreen currency tokens: bag items that spend like currency no
+-- matter which expansion stamped them (Mark of Honor is a Legion item
+-- you earn and spend today). Curated by itemID: no API flags a bag
+-- item as currency (C_CurrencyInfo only maps currency links), so new
+-- token items join here as they are confirmed in-game.
+local CURRENCY_TOKENS = {
+  [137642] = true, -- Mark of Honor
+}
+
+-- 6. Currency token -> keep. Spendable now, whatever the stamp says.
+rules[#rules + 1] = function(item, data, ctx)
+  if item.itemID and CURRENCY_TOKENS[item.itemID] then return "keep", "currency token" end
+end
+
+-- 7. Profession tool for a profession you have -> keep. Character-
 -- scoped like equipment sets: warbank tools for an alt's profession
 -- don't keep here.
 rules[#rules + 1] = function(item, data, ctx)
@@ -139,26 +159,27 @@ rules[#rules + 1] = function(item, data, ctx)
   if skill and ctx.professions[skill] then return "keep", "profession tool" end
 end
 
--- 7. Openable container (cache, lockbox, gift) -> use. Contents
+-- 8. Openable container (cache, lockbox, gift) -> use. Contents
 -- can't be triaged until the box is opened.
 rules[#rules + 1] = function(item, data, ctx)
   if item.openable then return "use", "openable" end
 end
 
+-- Consumable housing decor always wants using: the first copy unlocks
+-- the collection entry, later copies stock the House Chest ("Use: Add
+-- this Decor to your House Chest"). Verified: C_Item.IsDecorItem plus
+-- Blizzard's own bag-button check (ItemButtonTemplate.lua). No catalog
+-- read: owned counts can't make USE wrong, and a missing catalog entry
+-- (undiscovered decor, unloaded data) must never route decor to vendor.
+local function isConsumableDecor(itemID)
+  if not (C_Item and C_Item.IsDecorItem) then return false end
+  local ok, isDecor = pcall(C_Item.IsDecorItem, itemID)
+  return ok and isDecor == true
+end
+
 -- Definitive-false collectable checks. Each returns true only on a
 -- proven "is one, owns zero"; anything else (not one, unknown, API
 -- missing or erroring) returns false and the item falls through.
-local function uncollectedDecor(itemID)
-  if not (C_Item and C_Item.IsDecorItem) then return false end
-  local ok, isDecor = pcall(C_Item.IsDecorItem, itemID)
-  if not ok or isDecor ~= true then return false end
-  local cat = C_HousingCatalog
-  if not (cat and cat.GetCatalogEntryInfoByItem) then return false end
-  local okEntry, info = pcall(cat.GetCatalogEntryInfoByItem, itemID)
-  if not okEntry or type(info) ~= "table" then return false end
-  return (info.totalNumStored or 0) + (info.totalNumPlaced or 0)
-    + (info.remainingRedeemable or 0) == 0
-end
 
 local function uncollectedPet(itemID)
   local pj = C_PetJournal
@@ -186,17 +207,17 @@ local function uncollectedToy(itemID)
   return PlayerHasToy(itemID) == false
 end
 
--- 8. Uncollected collectable (decor, pet, mount, toy) -> use. Extra
--- copies of owned collectables fall through to the normal rules.
+-- 9. Housing decor -> use. Uncollected pets, mounts, and toys -> use;
+-- extra copies of those fall through to the normal rules.
 rules[#rules + 1] = function(item, data, ctx)
   if not item.itemID then return nil end
-  if uncollectedDecor(item.itemID) then return "use", "uncollected decor" end
+  if isConsumableDecor(item.itemID) then return "use", "housing decor" end
   if uncollectedPet(item.itemID) then return "use", "uncollected pet" end
   if uncollectedMount(item.itemID) then return "use", "uncollected mount" end
   if uncollectedToy(item.itemID) then return "use", "uncollected toy" end
 end
 
--- 9. Bind-on-equip gear, market value above threshold -> sell.
+-- 10. Bind-on-equip gear, market value above threshold -> sell.
 -- Any expansion: a priced current BoE should list, not vendor.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
@@ -206,7 +227,7 @@ rules[#rules + 1] = function(item, data, ctx)
   if price and price > ns.config.get("ahThreshold") then return "sell", "worth listing" end
 end
 
--- 10. Old-expansion uncommon/rare gear -> disenchant. Epics fall through
+-- 11. Old-expansion uncommon/rare gear -> disenchant. Epics fall through
 -- to vendor so buyback stays available; greens/blues are safe to break.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
@@ -255,7 +276,7 @@ local function questTitleFromLink(link)
   return nil
 end
 
--- 11. Quest item -> keep, unless its quest is complete. Dead quest
+-- 12. Quest item -> keep, unless its quest is complete. Dead quest
 -- items destroy; anything unproven stays out of harm's way.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
@@ -265,12 +286,12 @@ rules[#rules + 1] = function(item, data, ctx)
   return "keep", "quest item"
 end
 
--- 12. Has a vendor price -> vendor
+-- 13. Has a vendor price -> vendor
 rules[#rules + 1] = function(item, data, ctx)
   if data and data.sellPrice and data.sellPrice > 0 then return "vendor", "vendor price" end
 end
 
--- 13. Anything else -> keep. Destroy-by-default deleted Hearthstones;
+-- 14. Anything else -> keep. Destroy-by-default deleted Hearthstones;
 -- unclassified items wait for review instead.
 function ranking.rank(items)
   local ctx = {
