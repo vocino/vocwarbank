@@ -57,6 +57,16 @@ function mock.ns()
     config = {
       get = function(k) return mock.cfg[k] end,
       set = function(k, v) mock.cfg[k] = v end,
+      parseItemID = function(s)
+        if not s or s == "" then return nil end
+        return tonumber(s) or tonumber(tostring(s):match("item:(%d+)"))
+      end,
+      setListItem = function(which, itemID, on)
+        local list = mock.cfg[which]
+        if type(list) ~= "table" or not itemID then return false end
+        if on then list[itemID] = true else list[itemID] = nil end
+        return true
+      end,
     },
     providers = {
       get = function() return mock.provider end,

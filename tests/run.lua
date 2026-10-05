@@ -182,5 +182,108 @@ check("short slash is /vw", _G.SLASH_VOCWARBANK1 == "/vw")
 check("long slash is /vocwarbank", _G.SLASH_VOCWARBANK2 == "/vocwarbank")
 check("slash handler installed", type(_G.SlashCmdList.VOCWARBANK) == "function")
 
+-- config: the real module against a scratch SavedVariable
+local function loadConfig(db)
+  local ns = { db = db }
+  assert(loadfile("config.lua"))("VocWarbank", ns)
+  return ns
+end
+
+do
+  local cns = loadConfig({})
+  cns.config.init()
+  check("config fills defaults",
+    cns.db.priceSource == "auto" and cns.db.scope == "bags"
+    and cns.db.ahThreshold == 100000 and type(cns.db.neverSell) == "table")
+  cns.db.neverSell[5] = true
+  cns.db = {}
+  cns.config.init()
+  check("config table defaults are not shared", cns.db.neverSell[5] == nil)
+end
+
+do
+  local cns = loadConfig({
+    neverSell = "junk", alwaysSell = 42, collapsedGroups = 7,
+    ahThreshold = "lots", scope = "everywhere", priceSource = "ebay",
+    inventorySource = "syndicator", sortMode = "chaos",
+    autoOpenVendor = "yes", tsmKey = "", enchanter = 42,
+  })
+  cns.config.init()
+  check("config repairs corrupt lists",
+    type(cns.db.neverSell) == "table" and next(cns.db.neverSell) == nil
+    and type(cns.db.alwaysSell) == "table" and type(cns.db.collapsedGroups) == "table")
+  check("config repairs corrupt threshold", cns.db.ahThreshold == 100000)
+  check("config repairs bad enums",
+    cns.db.scope == "bags" and cns.db.priceSource == "auto" and cns.db.sortMode == "off")
+  check("config repairs bad scalars",
+    cns.db.autoOpenVendor == false and cns.db.tsmKey == "DBMarket" and cns.db.enchanter == "")
+  check("config keeps valid values", cns.db.inventorySource == "syndicator")
+end
+
+do
+  local cns = loadConfig({ source = "builtin" })
+  cns.config.init()
+  check("config migrates legacy source",
+    cns.db.priceSource == "vendor" and cns.db.source == nil)
+end
+
+do
+  local cns = loadConfig(nil)
+  check("config.get safe before load", cns.config.get("scope") == "bags")
+  cns.config.set("scope", "all") -- must not error
+  check("config.set safe before load", cns.config.get("scope") == "all")
+end
+
+-- scanner: modern bank numbering with Enum (reagent bag 5 excluded, bank bag 12 kept)
+mock.reset()
+_G.Enum = { BagIndex = {
+  Bank = -1, Reagentbank = -3,
+  BankBag_1 = 6, BankBag_2 = 7, BankBag_3 = 8, BankBag_4 = 9,
+  BankBag_5 = 10, BankBag_6 = 11, BankBag_7 = 12,
+} }
+mock.bags[5] = { [1] = { link = "|Hitem:401|h[x]|h|r" } }
+mock.bags[12] = { [1] = { link = "|Hitem:402|h[x]|h|r" } }
+sns = loadAddon("scanner.lua")
+out = sns.scanner.scan("bank")
+check("modern bank skips reagent bag, keeps bank bags",
+  #out == 1 and out[1].itemID == 402 and out[1].bag == 12)
+_G.Enum = nil
+
+-- ranking: quest cache invalidates on demand
+mock.reset()
+mock.item(111, { classID = 12, expansionID = 9 })
+mock.tooltips[111] = { "Scrap of Notes", "The Nexus Job" }
+local qns = loadAddon("ranking.lua")
+local qi = { itemID = 111, scope = "bags", bag = 0, slot = 1, link = mock.items[111].link }
+check("live quest item keeps", qns.ranking.rank({ qi })[1].verdict == "keep")
+mock.completedQuests[77] = "The Nexus Job"
+check("quest cache is sticky within session",
+  qns.ranking.rank({ qi })[1].verdict == "keep")
+qns.ranking.refreshQuests()
+local q3 = qns.ranking.rank({ qi })[1]
+check("quest refresh re-trashes", q3.verdict == "trash" and q3.reason == "quest complete")
+
+-- main.lua: slash arg handling (chat silenced, then restored before checks)
+mock.reset()
+local mns = loadAddon("main.lua")
+mns.providers.init = function() end
+local rescans = 0
+mns.ui = { isOpen = function() return true end, rescan = function() rescans = rescans + 1 end }
+local realPrint = print
+print = function() end
+_G.SlashCmdList.VOCWARBANK("source TSM")
+_G.SlashCmdList.VOCWARBANK("inventory Blizzard")
+_G.SlashCmdList.VOCWARBANK("scope BAGS")
+_G.SlashCmdList.VOCWARBANK("threshold 5")
+_G.SlashCmdList.VOCWARBANK("never 123")
+_G.SlashCmdList.VOCWARBANK("bogus-command")
+print = realPrint
+check("slash source is case-insensitive", mock.cfg.priceSource == "tsm")
+check("slash inventory is case-insensitive", mock.cfg.inventorySource == "blizzard")
+check("slash scope is case-insensitive", mock.cfg.scope == "bags")
+check("slash threshold sets copper", mock.cfg.ahThreshold == 50000)
+check("slash never lists the item", mock.cfg.neverSell[123] == true)
+check("slash refreshes the open window", rescans == 5)
+
 print(string.format("%d passed, %d failed", pass, fail))
 os.exit(fail > 0 and 1 or 0)
