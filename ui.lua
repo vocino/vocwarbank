@@ -6,6 +6,8 @@ local ICON_SIZE = 36
 local PITCH = 40
 local COLS = 14
 local HEAD_H = 20
+local PLUS_TEX = "Interface\\Buttons\\UI-PlusButton-UP"
+local MINUS_TEX = "Interface\\Buttons\\UI-MinusButton-UP"
 
 local ACTIONABLE = {
   sell = true, disenchant = true, vendor = true,
@@ -344,9 +346,33 @@ end
 
 local function buildHeader(f)
   f:SetHeight(HEAD_H)
-  local label = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  label:SetPoint("LEFT", f, "LEFT", 2, 0)
-  local r = { button = f, label = label, key = nil, entries = nil }
+  local label = f:CreateFontString(nil, "ARTWORK", "GameFontNormalMed2")
+  label:SetPoint("LEFT", f, "LEFT", 20, 0)
+  local toggle = f:CreateTexture(nil, "ARTWORK")
+  toggle:SetSize(14, 14)
+  toggle:SetPoint("LEFT", f, "LEFT", 0, 0)
+  toggle:SetTexture(PLUS_TEX)
+  local pulse = f:CreateAnimationGroup()
+  local function addFade(region)
+    local f1 = pulse:CreateAnimation("Alpha")
+    f1:SetFromAlpha(1)
+    f1:SetToAlpha(0.4)
+    f1:SetDuration(0.5)
+    f1:SetTarget(region)
+    f1:SetOrder(1)
+    f1:SetSmoothing("IN_OUT")
+    local f2 = pulse:CreateAnimation("Alpha")
+    f2:SetFromAlpha(0.4)
+    f2:SetToAlpha(1)
+    f2:SetDuration(0.5)
+    f2:SetTarget(region)
+    f2:SetOrder(2)
+    f2:SetSmoothing("IN_OUT")
+  end
+  addFade(label)
+  addFade(toggle)
+  pulse:SetLooping("REPEAT")
+  local r = { button = f, label = label, toggle = toggle, pulse = pulse, key = nil, entries = nil }
   f._rec = r
   f:SetScript("OnClick", function()
     if IsShiftKeyDown() then ui.toggleSection(r.entries)
@@ -428,6 +454,29 @@ local function expansionGetter()
   end
 end
 
+-- Collapsed headers holding search matches pulse, so hidden hits are
+-- discoverable. Mirrors upstream's fade loop (0.5s, 1 -> 0.4 -> 1).
+local function updateHeaderPulse()
+  if not headPool then return end
+  local shut = ns.config.get("collapsedGroups") or {}
+  for b in headPool:EnumerateActive() do
+    local r = b._rec
+    if r and r.entries and r.pulse then
+      local hit = false
+      if shut[r.key] and searchText ~= "" then
+        for _, entry in ipairs(r.entries) do
+          local link = entry.item.link or ""
+          if ui.searchMatch((link:match("%[(.-)%]") or link):lower(), searchText) then
+            hit = true
+            break
+          end
+        end
+      end
+      if hit then r.pulse:Play() else r.pulse:Stop() end
+    end
+  end
+end
+
 local function applySearch()
   if not iconPool then return end
   for b in iconPool:EnumerateActive() do
@@ -436,6 +485,7 @@ local function applySearch()
       r.button:SetAlpha(ui.searchMatch(r.searchName, searchText) and 1 or 0.35)
     end
   end
+  updateHeaderPulse()
 end
 
 local function updateSortButton(x)
@@ -468,7 +518,9 @@ local function refreshTabs()
     local b = tabPool:Acquire()
     if not b._rec then
       b:SetHeight(20)
-      ns.theme.styleButton(b, true)
+      -- Tabs stay stock: upstream routes its own tabs through a
+      -- no-op skinner, even on Dark. (EUI still styles them.)
+      ns.theme.styleButton(b, true, true)
       b._rec = true
     end
     local label = v == "all" and "All" or verdictLabel(v)
@@ -504,7 +556,8 @@ function render(ranked)
     h.button:SetWidth(560)
     h.button:Show()
     local shut = collapsed[sec.key]
-    h.label:SetText((shut and "+ " or "- ") .. sec.label .. " (" .. #sec.entries .. ")")
+    h.label:SetText(sec.label .. " (" .. #sec.entries .. ")")
+    h.toggle:SetTexture(shut and PLUS_TEX or MINUS_TEX)
     y = y + HEAD_H
     if not shut then
       for j, entry in ipairs(sec.entries) do
@@ -523,6 +576,7 @@ function render(ranked)
   scroll:UpdateScrollChildRect()
   if #lastSections == 0 then emptyNote:Show() else emptyNote:Hide() end
   refreshTabs()
+  updateHeaderPulse()
   local active = groupMode == "category" and 1 or 2
   groupButtons[1]:SetText(active == 1 and "[ Category ]" or "Category")
   groupButtons[2]:SetText(active == 2 and "[ Expansion ]" or "Expansion")

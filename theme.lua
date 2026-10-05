@@ -1,7 +1,6 @@
 local name, ns = ...
 local theme = {}
 ns.theme = theme
-local unpack = unpack or table.unpack -- retail client is 5.1, probes run newer
 
 -- Theme engine. One window, three looks, picked live:
 --   ellesmere -> the suite's own textured shell, applied through its
@@ -26,6 +25,8 @@ local unpack = unpack or table.unpack -- retail client is 5.1, probes run newer
 --     fill (0.05,0.05,0.05) at alpha 1-transparency (default 0.7),
 --     border Lighten(+0.3) = (0.35,0.35,0.35). Buttons = edge 6,
 --     fill black 0.5, hover (0.3) 0.8, pressed (0.2) 0.8.
+--     Transparency, frame borders, square icons, and slot backgrounds
+--     follow the user's live skins.dark.* options (same defaults).
 --
 -- Baganator exposes Baganator.Skins.AddFrame, but its skinners assume
 -- Baganator frame shapes (Left/Right/Middle, SlotBackground), so calling
@@ -36,7 +37,6 @@ local BGR_BG = "Interface/AddOns/Baganator/Assets/Skins/dark-backgroundfile"
 local BGR_EDGE = "Interface/AddOns/Baganator/Assets/Skins/dark-edgefile"
 local BGR_ICON_BORDER = "Interface/AddOns/Baganator/Assets/Skins/dark-icon-border"
 local BGR_FILL = { 0.05, 0.05, 0.05 }
-local BGR_ALPHA = 0.7 -- 1 - view_transparency default (0.3)
 local BGR_BORDER = { 0.35, 0.35, 0.35 } -- Lighten(+0.3) of the fill
 
 local STRIP_KEYS = {
@@ -63,6 +63,23 @@ end
 -- Guarded read of the user's Baganator skin key. Profiles live in
 -- BAGANATOR_CONFIG.Profiles[BAGANATOR_CURRENT_PROFILE]; anything
 -- unreadable means stock, which is the Blizzard skin.
+-- Guarded walk to the user's Baganator profile table. Skin options
+-- live nested under profile.skins.<skin> (their Config nests dotted
+-- keys); anything unreadable falls back to the passed default.
+local function baganatorProfile()
+  local cfg = _G and _G.BAGANATOR_CONFIG or nil
+  local prof = (_G and _G.BAGANATOR_CURRENT_PROFILE) or "DEFAULT"
+  return cfg and cfg.Profiles and cfg.Profiles[prof] or nil
+end
+
+local function baganatorDarkOpt(key, default)
+  local p = baganatorProfile()
+  local dark = p and p.skins and p.skins.dark
+  local v = dark and dark[key]
+  if v == nil then return default end
+  return v
+end
+
 local function baganatorSkinKey()
   local cfg = _G and _G.BAGANATOR_CONFIG or nil
   local prof = (_G and _G.BAGANATOR_CURRENT_PROFILE) or "DEFAULT"
@@ -172,8 +189,15 @@ local function applyBaganatorWindow(window)
   if not window.SetBackdrop then return end
   window:SetBackdrop({ bgFile = BGR_BG, edgeFile = BGR_EDGE,
     tile = true, tileEdge = true, tileSize = 32, edgeSize = 9 })
-  window:SetBackdropColor(BGR_FILL[1], BGR_FILL[2], BGR_FILL[3], BGR_ALPHA)
-  window:SetBackdropBorderColor(BGR_BORDER[1], BGR_BORDER[2], BGR_BORDER[3], 1)
+  -- Transparency and frame borders are live user options upstream.
+  local t = tonumber(baganatorDarkOpt("view_transparency", 0.3)) or 0.3
+  t = math.max(0, math.min(1, t))
+  window:SetBackdropColor(BGR_FILL[1], BGR_FILL[2], BGR_FILL[3], 1 - t)
+  if baganatorDarkOpt("no_frame_borders", false) then
+    window:SetBackdropBorderColor(1, 1, 1, 0)
+  else
+    window:SetBackdropBorderColor(BGR_BORDER[1], BGR_BORDER[2], BGR_BORDER[3], 1)
+  end
 end
 
 local function clearBaganatorWindow(window)
@@ -185,13 +209,15 @@ end
 
 -- Per-widget styling. Called for every widget at creation (styles for
 -- the current look) and re-run wholesale whenever the look changes.
-function theme.styleButton(b, withLabel)
+-- skipDark leaves a button stock under the Dark look (upstream routes
+-- tabs through a no-op skinner). EUI still styles everything.
+function theme.styleButton(b, withLabel, skipDark)
   refs = refs or { buttons = {} } -- widgets announce before init hands over refs
-  refs.buttons[#refs.buttons + 1] = { b = b, label = withLabel }
+  refs.buttons[#refs.buttons + 1] = { b = b, label = withLabel, skipDark = skipDark }
   if current == "ellesmere" and eui then
     eui.Button(b)
     if withLabel then eui.StateButtonLabel(b) end
-  elseif current == "baganator" then
+  elseif current == "baganator" and not skipDark then
     bgrStyleButton(b)
   end
 end
@@ -211,7 +237,9 @@ function theme.styleIcon(r)
     eui.SquareIcon(r.icon, r.button, true)
     eui.Font(r.count)
     eui.Font(r.level)
-  elseif current == "baganator" then
+  -- Square icons are opt-in upstream (skins.dark.square_icons, off by
+  -- default). paintIcon owns the per-paint truth; this is just early.
+  elseif current == "baganator" and baganatorDarkOpt("square_icons", false) then
     r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   end
 end
@@ -220,12 +248,9 @@ function theme.styleHeader(r)
   if current == "ellesmere" and eui then
     eui.Font(r.label)
     eui.White(r.label)
-  elseif current == "baganator" then
-    if not r.savedFont then
-      r.savedFont = { r.label:GetFont() }
-    end
-    r.label:SetFontObject("GameFontNormalMed2")
   end
+  -- Other looks keep the creation font (GameFontNormalMed2): upstream
+  -- sets it in view code, independent of the active skin.
 end
 
 -- Icon paint hook. Quality and verdict stay visible in every theme:
@@ -246,7 +271,10 @@ function theme.paintIcon(r, quality, qcolor)
     eui.SquareIcon(r.icon, r.button, true)
     return
   end
-  if current == "baganator" then
+  -- Upstream crops and re-borders icons only when the user opts into
+  -- square icons (off by default); otherwise icons keep the Blizzard
+  -- rings, which our quality plate approximates below.
+  if current == "baganator" and baganatorDarkOpt("square_icons", false) then
     r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     r.bg:SetColorTexture(0, 0, 0, 0.3) -- SlotBackground
     if not r.bgrBorder then
@@ -259,7 +287,7 @@ function theme.paintIcon(r, quality, qcolor)
     r.bgrBorder:SetVertexColor(c.r, c.g, c.b, quality > 1 and 1 or 0.5)
     r.bgrBorder:Show()
   else
-    if current == "default" then r.icon:SetTexCoord(0, 1, 0, 1) end
+    r.icon:SetTexCoord(0, 1, 0, 1)
     -- Restore anything EUI stood down: the fallback path can land
     -- here after a failed EUI apply, and retries must repaint clean.
     r.bg:SetAlpha(1)
@@ -267,6 +295,10 @@ function theme.paintIcon(r, quality, qcolor)
     if r.button.IconBorder then r.button.IconBorder:Hide() end
     r.bg:SetColorTexture(qcolor[1], qcolor[2], qcolor[3], 1)
     if r.bgrBorder then r.bgrBorder:Hide() end
+  end
+  -- Upstream hides slot backgrounds on request, whatever the icon shape.
+  if current == "baganator" and baganatorDarkOpt("empty_slot_background", false) then
+    r.bg:Hide()
   end
 end
 
@@ -294,7 +326,9 @@ end
 
 local function applyBaganator()
   applyBaganatorWindow(refs.window)
-  for _, rec in ipairs(refs.buttons) do bgrStyleButton(rec.b) end
+  for _, rec in ipairs(refs.buttons) do
+    if not rec.skipDark then bgrStyleButton(rec.b) end
+  end
   for _b in refs.headPool:EnumerateActive() do theme.styleHeader(_b._rec) end
   for _b in refs.iconPool:EnumerateActive() do theme.styleIcon(_b._rec) end
 end
@@ -302,10 +336,6 @@ end
 local function clearBaganator()
   clearBaganatorWindow(refs.window)
   for _, rec in ipairs(refs.buttons) do bgrUnstyleButton(rec.b) end
-  for _b in refs.headPool:EnumerateActive() do
-    local r = _b._rec
-    if r.savedFont then r.label:SetFont(unpack(r.savedFont)) end
-  end
 end
 
 -- The engine skins modern (Track/Thumb) bars only, and ours is the
@@ -357,7 +387,13 @@ end
 function theme.decide()
   if not refs then return end
   if eui then apply("ellesmere")
-  elseif baganatorDark() then apply("baganator")
+  elseif baganatorDark() then
+    apply("baganator")
+    -- Options are live: refresh the dressing on every scan even when
+    -- the look itself didn't change. Icons repaint in render().
+    if current == "baganator" and refs.window then
+      applyBaganatorWindow(refs.window)
+    end
   else apply("default") end
 end
 
