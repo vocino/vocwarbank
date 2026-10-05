@@ -6,7 +6,7 @@ local boot = CreateFrame("Frame")
 boot:RegisterEvent("ADDON_LOADED")
 boot:SetScript("OnEvent", function(_, _, addon)
   if addon ~= name then return end
-  VocWarbankDB = VocWarbankDB or {}
+  if type(VocWarbankDB) ~= "table" then VocWarbankDB = {} end
   ns.db = VocWarbankDB
   ns.config.init()
   ns.providers.init()
