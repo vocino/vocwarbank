@@ -18,7 +18,7 @@ function mock.reset()
   mock.pets = {}             -- itemID -> { speciesID, owned }
   mock.mounts = {}           -- itemID -> { mountID, collected }
   mock.toys = {}             -- itemID -> true (owned)
-  mock.decor = {}            -- itemID -> { stored, placed, redeemable }
+  mock.decor = {}            -- itemID -> true (consumable decor)
   mock.prices = {}           -- itemID -> copper
   mock.bags = {}             -- bagID -> { [slot] = { link, count, ... } }
   mock.expansionLevel = 11   -- midnight
@@ -129,15 +129,6 @@ function mock.install()
   _G.GetProfessionInfo = function(index)
     return nil, nil, nil, nil, nil, nil, mock.professionSkills[index]
   end
-
-  _G.C_HousingCatalog = {
-    GetCatalogEntryInfoByItem = function(itemID)
-      local d = mock.decor[itemID]
-      if not d then return nil end
-      return { totalNumStored = d.stored or 0, totalNumPlaced = d.placed or 0,
-               remainingRedeemable = d.redeemable or 0 }
-    end,
-  }
 
   _G.C_PetJournal = {
     GetPetInfoByItemID = function(itemID)

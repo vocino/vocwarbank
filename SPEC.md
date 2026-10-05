@@ -96,20 +96,23 @@ the verdict.
 
 1. Appearance not collected -> KEEP
 2. In a saved equipment set -> KEEP
-3. Current-expansion consumable, reagent, or trade good -> KEEP
+3. Current-expansion consumable, reagent, trade good, or (non-BoE)
+   gear -> KEEP (priced BoEs list at rule 10 instead)
 4. On the never-sell list -> KEEP
 5. On the always-sell list -> SELL (valued) or VENDOR
-6. Profession tool for a profession you have -> KEEP
-7. Openable container -> USE
-8. Uncollected collectable (decor, pet, mount, toy) -> USE
-9. Bind-on-equip gear, market value above threshold
+6. Currency token (Mark of Honor and confirmed kin) -> KEEP
+7. Profession tool for a profession you have -> KEEP
+8. Openable container -> USE
+9. Housing decor -> USE (first copy unlocks, extras stock the
+   chest); uncollected pet, mount, or toy -> USE
+10. Bind-on-equip gear, market value above threshold
    -> SELL (auction house)
-10. Old-expansion uncommon or rare gear -> DISENCHANT (epics keep
+11. Old-expansion uncommon or rare gear -> DISENCHANT (epics keep
    buyback through VENDOR instead)
-11. Quest item for a completed quest -> DESTROY (dead quest item,
+12. Quest item for a completed quest -> DESTROY (dead quest item,
    quest-log lookup); other quest items -> KEEP
-12. Has a vendor price -> VENDOR
-13. Anything else -> KEEP ("needs review"; never destroy by default)
+13. Has a vendor price -> VENDOR
+14. Anything else -> KEEP ("needs review"; never destroy by default)
 
 ## The window
 
@@ -237,7 +240,5 @@ prefix via `ns.say`.
 - TSM/Auctionator/Oribos calls need in-game verification (no local installs).
 - Confirm CurseForge/Wago received the v0.1.x packages
   (GitHub Releases did); the next tag ships the VocWarbank rename.
-- Decor owned-count semantics need in-game verification (bag items
-  vs storage counts).
 - Toy rule needs in-game confirmation that GetToyInfo covers
   uncollected toys.

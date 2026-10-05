@@ -796,7 +796,7 @@ end
 -- Actions. Each runs from a button click (a hardware event), which is
 -- what makes the protected container calls legal. ------------------------
 
--- Use consumes one-click collectables (caches, uncollected decor) from
+-- Use consumes one-click collectables (caches, housing decor) from
 -- bags. Equippables never route here, but if a future rule slips one in,
 -- skip it: using would bind it.
 function ui.useQueued(list)

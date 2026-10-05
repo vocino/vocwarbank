@@ -66,7 +66,7 @@
        enchanter it reads "Disenchant (R)" (in person), else
        "Mail for DE (R)"; anything that can go neither way is
        listed under the stack ("N can't go: X soulbound, Y
-       stowed"). Port: rule 11 yields destroy, verdictOrder and
+       stowed"). Port: rule 12 yields destroy, verdictOrder and
        tests follow; live enchanting check (skill 333, verify
        vs Blizzard source); partition over item.bound/scope;
        NEW in-person disenchant on the enchanter branch
@@ -391,7 +391,7 @@ const EXP_LABEL = {midnight:"Midnight",tww:"The War Within",df:"Dragonflight",sl
 const EXP_ORDER = ["midnight","tww","df","sl","bfa","legion","wod","mop","cata","wotlk","tbc","classic"];
 /* DESIGN 9: trash+destroy merged into "destroy" (ranking.lua never yields
    "destroy" today — the merge deletes a dead verdict; "trash" would collide
-   with vendor-trash grays). Port: rule 11 + verdictOrder + tests. */
+   with vendor-trash grays). Port: rule 12 + verdictOrder + tests. */
 const VERDICT_LABEL = {keep:"Keep",sell:"Sell",disenchant:"Disenchant",vendor:"Vendor",destroy:"Destroy",use:"Use"};
 const VERDICT_ORDER = ["keep","use","sell","disenchant","vendor","destroy"];
 /* DESIGN 7: fixed tab widths are gone — facet rows fill the sidebar width. */
@@ -429,7 +429,7 @@ const RANKED = [
   {id:902,name:"Sealed Orders",cls:12,q:1,exp:"tww",verdict:"keep",reason:"quest item",value:null,scope:"bags",bag:3,slot:2},
   {id:1001,name:"Lucky Charm",cls:15,q:1,exp:"classic",verdict:"vendor",reason:"vendor price",value:100,scope:"bags",bag:3,slot:3},
   {id:1101,name:"Blacksmith Hammer",cls:19,q:2,exp:"tww",verdict:"keep",reason:"profession tool",value:null,scope:"bags",bag:3,slot:4},
-  {id:1201,name:"Oak Chair",cls:20,q:2,exp:"tww",verdict:"use",reason:"uncollected decor",value:null,scope:"bags",bag:3,slot:5},
+  {id:1201,name:"Oak Chair",cls:20,q:2,exp:"tww",verdict:"use",reason:"housing decor",value:null,scope:"bags",bag:3,slot:5},
   {id:1301,name:"TWW Herb",cls:5,q:1,count:50,exp:"tww",verdict:"keep",reason:"current mats",value:25000,scope:"bags",bag:4,slot:1},
   {id:1302,name:"Ancient Reagent",cls:5,q:1,count:12,exp:"wotlk",verdict:"vendor",reason:"vendor price",value:2400,scope:"warbank",tab:1,index:5},
   {id:1401,name:"Iron Arrow",cls:6,q:1,count:200,exp:"classic",verdict:"vendor",reason:"vendor price",value:2000,scope:"bags",bag:4,slot:3},
