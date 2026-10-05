@@ -506,8 +506,7 @@ end
 -- queue.lua: identity-based action queues (no frames needed at load)
 do
   mock.reset()
-  local qns = loadAddon("queue.lua")
-  local q = qns.queue
+  local q = loadAddon("queue.lua").queue
   local function qe(id, extra)
     local item = { itemID = id, scope = "bags", bag = 0, slot = id,
       count = 1, link = "|cffffffff|Hitem:" .. id .. "|h[Item " .. id .. "]|h|r" }
@@ -587,35 +586,35 @@ end
 -- main.lua: /vw queue list and clear (chat captured, then restored)
 do
   mock.reset()
-  local mns = loadAddon("main.lua")
-  mns.queue = loadAddon("queue.lua").queue
-  mns.ui = { isOpen = function() return false end,
+  local qmns = loadAddon("main.lua")
+  qmns.queue = loadAddon("queue.lua").queue
+  qmns.ui = { isOpen = function() return false end,
     rescan = function() end,
     linkName = function(link) return link end }
   local handoffs = 0
-  mns.handoff = { onQueueChanged = function() handoffs = handoffs + 1 end }
-  local printed = {}
-  local realPrint = print
-  print = function(s) printed[#printed + 1] = s end
+  qmns.handoff = { onQueueChanged = function() handoffs = handoffs + 1 end }
+  local qprinted = {}
+  local savedPrint = print
+  print = function(s) qprinted[#qprinted + 1] = s end
   _G.SlashCmdList.VOCWARBANK("queue")
-  local emptyLines = #printed
-  mns.queue.add("vendor", { { item = { itemID = 7, count = 2, link = "Shiny", scope = "bags" } } })
+  local emptyLines = #qprinted
+  qmns.queue.add("vendor", { { item = { itemID = 7, count = 2, link = "Shiny", scope = "bags" } } })
   _G.SlashCmdList.VOCWARBANK("queue")
-  local listLines = #printed
+  local listLines = #qprinted
   _G.SlashCmdList.VOCWARBANK("queue clear vendor")
-  local clearLines = #printed
+  local clearLines = #qprinted
   _G.SlashCmdList.VOCWARBANK("queue clear bogus")
-  local bogusLines = #printed
-  print = realPrint
-  check("queue lists nothing when empty", emptyLines == 1 and printed[1]:find("nothing queued") ~= nil)
+  local bogusLines = #qprinted
+  print = savedPrint
+  check("queue lists nothing when empty", emptyLines == 1 and qprinted[1]:find("nothing queued") ~= nil)
   check("queue lists rows by action",
-    listLines - emptyLines == 2 and printed[emptyLines + 1]:find("vendor %(2 queued%)") ~= nil
-    and printed[emptyLines + 2] == "  Shiny ×2")
-  check("queue clear drops the action", mns.queue.empty("vendor")
-    and clearLines - listLines == 1 and printed[clearLines]:find("vendor queue cleared") ~= nil)
+    listLines - emptyLines == 2 and qprinted[emptyLines + 1]:find("vendor %(2 queued%)") ~= nil
+    and qprinted[emptyLines + 2] == "  Shiny ×2")
+  check("queue clear drops the action", qmns.queue.empty("vendor")
+    and clearLines - listLines == 1 and qprinted[clearLines]:find("vendor queue cleared") ~= nil)
   check("queue clear pokes the handoff", handoffs == 1)
   check("queue clear rejects unknown actions",
-    bogusLines - clearLines == 1 and printed[bogusLines]:find("usage:") ~= nil)
+    bogusLines - clearLines == 1 and qprinted[bogusLines]:find("usage:") ~= nil)
 end
 
 print(string.format("%d passed, %d failed", pass, fail))

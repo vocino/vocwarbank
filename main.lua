@@ -119,9 +119,9 @@ local function queueCmd(rest)
     for _, action in ipairs(actions) do
       ns.say(action .. " (" .. ns.queue.count(action) .. " queued):")
       for _, row in ipairs(ns.queue.list(action)) do
-        local name = (ns.ui and ns.ui.linkName and ns.ui.linkName(row.link))
+        local itemName = (ns.ui and ns.ui.linkName and ns.ui.linkName(row.link))
           or ("item:" .. tostring(row.id))
-        print("  " .. name .. (row.n > 1 and (" ×" .. row.n) or ""))
+        print("  " .. itemName .. (row.n > 1 and (" ×" .. row.n) or ""))
       end
     end
   elseif sub == "clear" and (arg == "" or queueActions[arg]) then
