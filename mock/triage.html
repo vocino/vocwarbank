@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  VocWarbank UI mock — TEMPORARY design iteration, never packaged.
+  Open directly: file://.../mock/triage.html (no server, no network).
+  Ignored by git (.gitignore), the packager (.pkgmeta), and lint (.luacheckrc).
+
+  PORT-BACK CHECKLIST (mock -> Lua target):
+    --vw-icon-size/--vw-pitch/--vw-cols/--vw-head-h -> ui.lua ICON_SIZE/PITCH/COLS/HEAD_H
+    --vw-win-w/--vw-win-h                        -> ui.lua ui.init window:SetSize(660, 640)
+    --vw-q0..--vw-q7                             -> ui.lua QUALITY_COLOR (stock plate path;
+                                                   Baganator path uses ITEM_QUALITY_COLORS,
+                                                   theme.lua paintIcon)
+    --vw-v-*                                    -> ui.lua VERDICT_COLOR (icon dot)
+    Facet rows (DESIGN 7)                       -> ui.lua refreshTabs rewrite (TAB_WIDTH deleted)
+    --vw-text-normal/hi/dis                     -> GameFontNormal/Med2, GameFontHighlight,
+                                                   GameFontDisable (ui.lua widget fonts)
+    [data-look=baganator] tokens                -> theme.lua BGR_* + bgrStyleButton
+    Layout offsets (top/left/right/bottom)      -> ui.lua SetPoint calls, same numbers:
+                                                   Lua -N px == CSS N px from the same edge.
+
+  DESIGN DELTAS (mock leads, ui.lua follows on port):
+    1. SUPERSEDED BY 7 (kept for archaeology): verdict tabs with
+       scan counts flowing onto 2 rows: row A max x 410,
+       wrapped rows max x 636, row height 24. Port: refreshTabs
+       flow math, new TAB_WIDTH {all:72,keep:86,use:74,sell:78,
+       disenchant:126,vendor:94,trash:82,destroy:94}, active tab
+       uses the pressed look instead of "[ ]" brackets. Widths fit
+       ≤2-digit counts; for 3-digit headroom add ~24px per tab
+       (stays 2 rows) or size from GetStringWidth.
+    2. Sort is a dropdown (Bag order/Quality/Value/Name) plus a
+       direction button in the content header (dir x 488, menu
+       x 516+120, y 30). Port: UIDropDownMenu
+       + small button; mode keys unchanged, "off" label becomes
+       "Bag order"; direction replaces right-click reverse.
+    3. SUPERSEDED BY 7: old single-column rows (modes/sort/
+       search row 1, tab rows, scroll top 124). See 7.
+    4. Headers show matches/total during search ("Armor (2/3)").
+    5. Collapse glyphs are triangles (expanded ▾ / collapsed ▸):
+       verify Friz Quadrata coverage in-game, else keep textures.
+    6. SUPERSEDED BY 7: facet rows are unstyled text rows in
+       both looks (no theme styling needed on port).
+    7. Two-column layout. Sidebar x12..192 (tinted panel +
+       divider): search y30 (138 + x22), Verdict facets y76
+       (8 rows x 20+2), Group-by pair y276 (2 x 80), Selection
+       stack y322/346 (full width), Actions label y372 + hint,
+       stack y408 pitch 26 (5 x 164x22), source status pinned
+       bottom. Content x200..648: stats y30, sort cluster right
+       (dir 488, menu 516+120), scroll y56..bottom-86, child
+       412, headers 404, COLS 14->10, footer across the content
+       width only. Port: new ui.init geometry + divider texture,
+       facet list as a button pool, tab flow and TAB_WIDTH
+       deleted.
+    8. Actions frame around the selection: the group label reads
+       "Actions · N selected" live (N = slots + keeps), a hint
+       ("Select items to act on them.") shows at zero selection,
+       and the group dims until something is selected. The flow
+       reads narrow -> select -> act. Port: label FontString +
+       hint FontString updated in updateTexts.
+    9. Verdicts assess, buttons operate. trash+destroy merged
+       into destroy (dark red; "trash" would collide with
+       vendor-trash grays). The DE button adapts: on an
+       enchanter it reads "Disenchant (R)" (in person), else
+       "Mail for DE (R)"; anything that can go neither way is
+       listed under the stack ("N can't go: X soulbound, Y
+       stowed"). Port: rule 11 yields destroy, verdictOrder and
+       tests follow; live enchanting check (skill 333, verify
+       vs Blizzard source); partition over item.bound/scope;
+       NEW in-person disenchant on the enchanter branch
+       (hardware-event cast + container target); disable the
+       mail branch with a "set an enchanter" title when no
+       enchanter is configured; verify DE-from-bank against
+       Blizzard source before enabling stowed items in person.
+
+  FIDELITY GAPS (do not port these literally):
+    Fonts are system fallbacks; in-game uses Friz Quadrata variants.
+    Icon art is a CSS placeholder; in-game uses item textures via
+      C_Item.GetItemIconByID (ui.lua paintIcon).
+    Baganator edgeSize 9/6 tiles render here as flat 2px/1px borders.
+    The scrollbar is the browser native bar; in-game is the legacy
+      Slider bar (UIPanelScrollFrameTemplate).
+    The .mockbar toolbar is MOCK-ONLY and has no Lua counterpart.
+-->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VocWarbank mock — triage window</title>
+<style>
+:root {
+  /* LUA: ui.lua ICON_SIZE/PITCH/COLS/HEAD_H */
+  --vw-icon-size: 36px;
+  --vw-pitch: 40px;
+  --vw-cols: 10; /* DESIGN 7: 10 columns in the 448px content column (ui.lua: 14) */
+  --vw-head-h: 20px;
+  /* LUA: ui.lua ui.init window:SetSize(660, 640) */
+  --vw-win-w: 660px;
+  --vw-win-h: 640px;
+  /* LUA: ui.lua QUALITY_COLOR (game hexes; stock plate path) */
+  --vw-q0: #9d9d9d; --vw-q1: #ffffff; --vw-q2: #1eff00; --vw-q3: #0070dd;
+  --vw-q4: #a335ee; --vw-q5: #ff8000; --vw-q6: #e6cc80; --vw-q7: #00ccff;
+  /* LUA: ui.lua VERDICT_COLOR (icon dot) */
+  --vw-v-keep: #1ae61a; --vw-v-sell: #ffd900; --vw-v-disenchant: #3399ff;
+  --vw-v-vendor: #b3b3b3; --vw-v-destroy: #b31a1a;
+  --vw-v-use: #bf80ff;
+  /* LUA: ui.lua buildIcon selection plate (1, 0.82, 0, 0.9) */
+  --vw-sel: rgba(255, 209, 0, 0.9);
+  /* tab widths live in the JS TAB_W table (DESIGN 1) */
+  /* WoW font colors: GameFontNormal(gold), GameFontHighlight(white), GameFontDisable */
+  --vw-text-normal: #ffd100; --vw-text-hi: #ffffff; --vw-text-dis: #7f7f7f;
+  --vw-font: "Friz Quadrata", "Segoe UI", Verdana, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px; min-height: 100vh;
+  background: #101013; /* near-black so the translucent Baganator fill reads */
+  font-family: var(--vw-font); color: var(--vw-text-hi);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+/* MOCK-ONLY toolbar: no Lua counterpart. Switches looks + merchant state. */
+.mockbar {
+  width: var(--vw-win-w); display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--vw-text-dis);
+}
+.mockbar .tag {
+  font-size: 10px; letter-spacing: 1px; border: 1px solid #4a4a4a;
+  padding: 1px 6px; border-radius: 3px;
+}
+.mockbar button {
+  background: #1c1c22; color: #d8d8d8; border: 1px solid #4a4a4a;
+  border-radius: 4px; padding: 3px 10px; font: inherit; cursor: pointer;
+}
+.mockbar button[aria-pressed="true"] { border-color: #ffd100; color: #ffd100; }
+.mockbar label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+
+/* ---- window frame (LUA: ui.lua ui.init, BasicFrameTemplateWithInset) ---- */
+#vw-window {
+  position: relative; width: var(--vw-win-w); height: var(--vw-win-h);
+  flex: none; font-size: 12px; overflow: hidden;
+}
+/* default look: stock Blizzard chrome approximation */
+body[data-look="default"] #vw-window {
+  background: linear-gradient(#262b38, #1b1f2a);
+  border: 3px solid #4a4f5e; border-radius: 6px;
+}
+body[data-look="default"] .vw-title { color: var(--vw-text-normal); }
+body[data-look="default"] .vw-btn {
+  background: linear-gradient(#cfcfcf, #9a9a9a); color: #201804;
+  border: 1px solid #2c2c2c; border-radius: 4px;
+}
+body[data-look="default"] .vw-btn:hover:not(:disabled) { background: linear-gradient(#e8e8e8, #b0b0b0); }
+body[data-look="default"] .vw-btn:disabled { color: #6f6f6f; background: linear-gradient(#a8a8a8, #8c8c8c); }
+/* baganator look (LUA: theme.lua BGR_*; edgeSize 9 window / 6 buttons as flat lines) */
+body[data-look="baganator"] #vw-window {
+  background: rgba(13, 13, 13, 0.7); /* BGR_FILL 0.05 @ alpha 0.7 */
+  border: 2px solid #595959; /* BGR_BORDER 0.35 */
+  border-radius: 2px;
+}
+body[data-look="baganator"] .vw-title { color: #f2f2f2; }
+body[data-look="baganator"] .vw-btn {
+  background: rgba(0, 0, 0, 0.5); color: #e8e8e8;
+  border: 1px solid #000; border-radius: 2px;
+}
+body[data-look="baganator"] .vw-btn:hover:not(:disabled) {
+  background: rgba(77, 77, 77, 0.8); border-color: #4d4d4d;
+}
+body[data-look="baganator"] .vw-btn:active:not(:disabled) {
+  background: rgba(51, 51, 51, 0.8); border-color: #333;
+}
+body[data-look="baganator"] .vw-btn:disabled { background: rgba(0, 0, 0, 0.1); color: #777; }
+
+.vw-titlebar { position: absolute; top: 0; left: 0; right: 0; height: 24px; }
+.vw-title {
+  position: absolute; left: 0; right: 0; top: 4px; text-align: center;
+  font-size: 13px; font-weight: bold;
+}
+.vw-close {
+  position: absolute; right: 4px; top: 4px; width: 24px; height: 24px; /* LUA: closeBtn -4,-4 */
+  background: transparent; border: none; color: #ff8080; font-size: 16px;
+  line-height: 1; cursor: pointer;
+}
+/* DESIGN: stats head the content column; source is a sidebar status line */
+#vw-stats { position: absolute; left: 200px; top: 30px; color: var(--vw-text-hi); }
+#vw-source { position: absolute; left: 20px; bottom: 16px; color: var(--vw-text-dis); font-size: 11px; }
+/* DESIGN: 2-column layout — sidebar (x12..192) holds controls, content (x200..648) shows results */
+#vw-side { position: absolute; left: 0; top: 24px; bottom: 0; width: 192px; }
+body[data-look="default"] #vw-side { background: rgba(0,0,0,0.25); border-right: 1px solid #101218; }
+body[data-look="baganator"] #vw-side { background: rgba(0,0,0,0.35); border-right: 1px solid #2a2a2a; }
+.vw-side-label { position: absolute; left: 20px; font-size: 12px; font-weight: bold; color: var(--vw-text-dis); }
+#vw-lab-verdict { top: 56px; }
+#vw-lab-group { top: 256px; }
+#vw-lab-sel { top: 302px; }
+#vw-lab-act { top: 372px; }
+/* DESIGN 8: teaching hint while nothing is selected; the label carries the live count */
+#vw-act-hint { position: absolute; left: 20px; top: 390px; width: 164px; font-size: 11px; color: var(--vw-text-dis); display: none; }
+.vw-no-sel #vw-lab-act { opacity: 0.55; }
+/* sidebar: search */
+#vw-search { position: absolute; left: 20px; top: 30px; width: 138px; height: 20px;
+  background: #0a0a0a; border: 1px solid #555; color: #fff; font: inherit; font-size: 12px; padding: 0 6px; }
+#vw-search::placeholder { color: var(--vw-text-dis); }
+#vw-search-clear { position: absolute; left: 162px; top: 30px; width: 22px; height: 20px; }
+/* sidebar: verdict facet list (unstyled rows in both themes, like upstream tabs) */
+#vw-tabs { position: absolute; left: 20px; top: 76px; width: 164px; }
+#vw-tabs .vw-btn { position: static; display: flex; justify-content: space-between; align-items: center;
+  width: 100%; height: 20px; margin: 0 0 2px 0; padding: 0 6px;
+  background: none; border: none; border-left: 2px solid transparent; border-radius: 0;
+  color: var(--vw-text-hi); font-family: inherit; font-size: 12px; cursor: pointer; text-align: left; }
+#vw-tabs .vw-btn:hover { background: rgba(255,255,255,0.06); }
+#vw-tabs .vw-btn[aria-pressed="true"] { background: rgba(255,209,0,0.12); border-left-color: #ffd100; font-weight: bold; }
+#vw-tabs .vw-btn[aria-pressed="true"] .vw-f-count { color: #ffd100; }
+.vw-f-count { color: var(--vw-text-dis); }
+/* sidebar: group-by + selection pairs */
+.vw-mode { position: absolute; top: 276px; height: 20px; font-size: 12px; cursor: pointer; font-family: inherit; }
+#vw-mode-cat { left: 20px; width: 80px; }
+#vw-mode-exp { left: 104px; width: 80px; }
+#vw-select-shown { position: absolute; left: 20px; top: 322px; width: 164px; height: 20px; }
+#vw-clear { position: absolute; left: 20px; top: 346px; width: 164px; height: 20px; }
+/* content header: sort cluster, right-aligned above the results */
+.vw-select { position: absolute; font-family: inherit; font-size: 12px; cursor: pointer; }
+#vw-sort { left: 516px; top: 30px; width: 120px; height: 20px; }
+#vw-sort-dir { position: absolute; left: 488px; top: 30px; width: 24px; height: 20px; }
+.vw-btn { font-family: inherit; font-size: 12px; cursor: pointer; padding: 0 4px; white-space: nowrap; }
+.vw-btn[aria-pressed="true"] { font-weight: bold; }
+body[data-look="default"] .vw-mode[aria-pressed="true"] {
+  background: linear-gradient(#8a8a8a, #6e6e6e); color: #ffd100;
+  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5);
+}
+body[data-look="baganator"] .vw-mode[aria-pressed="true"] {
+  background: rgba(255,209,0,0.18); border-color: #ffd100; color: #ffd100;
+}
+body[data-look="default"] .vw-select {
+  background: #e8e8e8; color: #201804; border: 1px solid #2c2c2c; border-radius: 4px;
+}
+body[data-look="baganator"] .vw-select {
+  background: rgba(0,0,0,0.5); color: #e8e8e8; border: 1px solid #000; border-radius: 2px;
+}
+body[data-look="baganator"] #vw-sort-dir[aria-pressed="true"] {
+  background: rgba(255,209,0,0.18); border-color: #ffd100; color: #ffd100;
+}
+/* DESIGN: content scroll (x200..648); grid is 10 columns (DESIGN 7) */
+#vw-scroll { position: absolute; left: 200px; top: 56px; right: 12px; bottom: 86px; overflow-y: auto; overflow-x: hidden; }
+#vw-child { position: relative; width: 412px; }
+.vw-sec { position: relative; }
+/* LUA: ui.lua buildHeader: height 20, width 560 @ x4, label indented 20, 14px toggle */
+.vw-sec-head { position: absolute; left: 4px; width: 404px; height: 20px;
+  display: flex; align-items: center; cursor: pointer; background: none; border: none;
+  font-family: inherit; font-size: 14px; padding: 0; text-align: left; }
+.vw-sec-toggle { width: 14px; height: 14px; flex: none; color: var(--vw-text-normal);
+  font-size: 12px; line-height: 14px; text-align: center; }
+.vw-sec-label { margin-left: 6px; color: var(--vw-text-normal); } /* GameFontNormalMed2 */
+/* LUA: ui.lua updateHeaderPulse: collapsed header with search hits pulses 1->0.4->1 */
+@keyframes vw-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.vw-sec-head.vw-hit { animation: vw-pulse 1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .vw-sec-head.vw-hit { animation: none; } }
+/* LUA: ui.lua buildIcon/paintIcon: 36px button, quality plate, 32px art inset 2 */
+.vw-icon { position: absolute; width: var(--vw-icon-size); height: var(--vw-icon-size);
+  padding: 2px; border: none; cursor: pointer; }
+.vw-icon.vw-dim { opacity: 0.35; } /* LUA: search non-match SetAlpha(0.35) */
+.vw-icon.vw-sel { box-shadow: 0 0 0 2px var(--vw-sel); } /* LUA: sel plate -2..+2 */
+.vw-art { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: bold; color: rgba(255,255,255,0.85);
+  background: linear-gradient(135deg, rgba(0,0,0,0.55), rgba(0,0,0,0.15)); } /* mock art; in-game: item texture */
+/* LUA: ui.lua dot 8x8 BOTTOMLEFT+3,3; count BOTTOMRIGHT-2,1; level TOPLEFT+2,-1 */
+.vw-dot { position: absolute; left: 3px; bottom: 3px; width: 8px; height: 8px; border-radius: 50%; }
+.vw-count { position: absolute; right: 2px; bottom: 1px; font-size: 10px; color: #fff; text-shadow: 1px 1px 0 #000; }
+.vw-level { position: absolute; left: 2px; top: 1px; font-size: 10px; color: #fff; text-shadow: 1px 1px 0 #000; }
+/* LUA: ui.lua emptyNote "No items match this filter." */
+#vw-empty { position: absolute; left: 200px; right: 12px; top: 200px; text-align: center; color: var(--vw-text-dis); display: none; }
+#vw-nomatch { position: absolute; left: 200px; right: 12px; top: 200px; text-align: center; color: var(--vw-text-dis); display: none; }
+/* DESIGN: footer spans the content column only (actions live in the sidebar) */
+#vw-footer { position: absolute; left: 200px; bottom: 64px; width: 436px; color: var(--vw-text-hi); }
+#vw-footer-groups { position: absolute; left: 200px; bottom: 50px; width: 436px; color: var(--vw-text-dis); }
+/* DESIGN: action buttons stack full-width in the sidebar (top 408, pitch 26) */
+.vw-act { position: absolute; left: 20px; width: 164px; height: 22px; }
+#vw-btn-use { top: 408px; } #vw-btn-sell { top: 434px; } #vw-btn-disenchant { top: 460px; }
+#vw-btn-vendor { top: 486px; } #vw-btn-destroy { top: 512px; }
+/* DESIGN 9: blocked-DE note under the action stack (hidden when nothing blocked) */
+#vw-de-note { position: absolute; left: 20px; top: 540px; width: 164px; font-size: 11px; color: var(--vw-text-dis); display: none; }
+/* LUA: ui.lua icon OnEnter tooltip: hyperlink, "Verdict — reason", "Value: X" */
+#vw-tooltip { position: absolute; display: none; z-index: 5; max-width: 260px;
+  background: rgba(0,0,0,0.92); border: 1px solid #666; border-radius: 3px;
+  padding: 5px 8px; font-size: 12px; pointer-events: none; }
+#vw-tooltip .tt-name { font-weight: bold; }
+#vw-tooltip .tt-line { color: #fff; }
+</style>
+</head>
+<body data-look="default">
+<div class="mockbar">
+  <span class="tag">MOCK ONLY</span>
+  <span>Look:</span>
+  <button data-setlook="default" aria-pressed="true">Stock</button>
+  <button data-setlook="baganator" aria-pressed="false">Baganator</button>
+  <label><input type="checkbox" id="mock-merchant"> Merchant open</label>
+  <label title="Mock for a live GetProfessions scan (skill 333)"><input type="checkbox" id="mock-enchanter"> Enchanter</label>
+  <button id="mock-show" style="display:none">Show window</button>
+</div>
+<div id="vw-window" role="dialog" aria-label="VocWarbank mock">
+  <div class="vw-titlebar"><div class="vw-title">VocWarbank</div><button class="vw-close" title="Close">×</button></div>
+  <div id="vw-side"></div>
+  <div class="vw-side-label" id="vw-lab-verdict">Verdict</div>
+  <div class="vw-side-label" id="vw-lab-group">Group by</div>
+  <div class="vw-side-label" id="vw-lab-sel">Selection</div>
+  <div class="vw-side-label" id="vw-lab-act">Actions</div>
+  <div id="vw-act-hint">Select items to act on them.</div>
+  <div id="vw-stats"></div>
+  <div id="vw-source"></div>
+  <button class="vw-btn vw-mode" id="vw-mode-cat" aria-pressed="true" title="Group by category">Category</button>
+  <button class="vw-btn vw-mode" id="vw-mode-exp" aria-pressed="false" title="Group by expansion">Expansion</button>
+  <select id="vw-sort" class="vw-select" title="Sort items within each group">
+    <option value="off">Sort: Bag order</option>
+    <option value="quality">Sort: Quality</option>
+    <option value="value">Sort: Value</option>
+    <option value="name">Sort: Name</option>
+  </select>
+  <button class="vw-btn" id="vw-sort-dir" title="Reverse sort order" aria-pressed="false">↑</button>
+  <input id="vw-search" type="text" placeholder="Search items..." autocomplete="off" title="Find items by name — non-matches dim">
+  <button class="vw-btn" id="vw-search-clear">x</button>
+  <button class="vw-btn" id="vw-select-shown">Select shown</button>
+  <button class="vw-btn" id="vw-clear">Clear</button>
+  <div id="vw-tabs"></div>
+  <div id="vw-scroll"><div id="vw-child"></div></div>
+  <div id="vw-empty">No items match this filter.</div>
+  <div id="vw-nomatch"></div>
+  <div id="vw-footer"></div>
+  <div id="vw-footer-groups"></div>
+  <button class="vw-btn vw-act" id="vw-btn-use" title="Use the selected items">Use (0)</button>
+  <button class="vw-btn vw-act" id="vw-btn-sell" title="List the selected items (auction helper)">Sell (0)</button>
+  <button class="vw-btn vw-act" id="vw-btn-disenchant" title="Mail the selected items to your enchanter">Disenchant (0)</button>
+  <button class="vw-btn vw-act" id="vw-btn-vendor" title="Sell the selected items at a merchant">Vendor (0)</button>
+  <button class="vw-btn vw-act" id="vw-btn-destroy" title="Destroy the selected items (with confirmation)">Destroy (0)</button>
+  <div id="vw-de-note"></div>
+  <div id="vw-tooltip"><div class="tt-name"></div><div class="tt-line tt-verdict"></div><div class="tt-line tt-value"></div></div>
+</div>
+<script>
+"use strict";
+/* ---- data tables (LUA: ui.lua CATEGORY/EXP/VERDICT_LABEL/TAB_WIDTH) ---- */
+const CATEGORY_LABEL = {0:"Consumables",1:"Containers",2:"Weapons",3:"Gems",4:"Armor",5:"Reagents",6:"Projectiles",7:"Trade Goods",8:"Enhancements",9:"Recipes",12:"Quest Items",15:"Miscellaneous",17:"Battle Pets",19:"Profession",20:"Housing"};
+const CATEGORY_ORDER = [2,4,0,7,5,3,8,9,1,12,15,17,19,20];
+const EXP_LABEL = {midnight:"Midnight",tww:"The War Within",df:"Dragonflight",sl:"Shadowlands",bfa:"Battle for Azeroth",legion:"Legion",wod:"Draenor",mop:"Pandaria",cata:"Cataclysm",wotlk:"Wrath",tbc:"Burning Crusade",classic:"Classic"};
+const EXP_ORDER = ["midnight","tww","df","sl","bfa","legion","wod","mop","cata","wotlk","tbc","classic"];
+/* DESIGN 9: trash+destroy merged into "destroy" (ranking.lua never yields
+   "destroy" today — the merge deletes a dead verdict; "trash" would collide
+   with vendor-trash grays). Port: rule 11 + verdictOrder + tests. */
+const VERDICT_LABEL = {keep:"Keep",sell:"Sell",disenchant:"Disenchant",vendor:"Vendor",destroy:"Destroy",use:"Use"};
+const VERDICT_ORDER = ["keep","use","sell","disenchant","vendor","destroy"];
+/* DESIGN 7: fixed tab widths are gone — facet rows fill the sidebar width. */
+const ACTIONABLE = {sell:1,disenchant:1,vendor:1,destroy:1,use:1};
+const PINS = {never:{9001:1}, always:{9002:1}}; /* LUA: config neverSell/alwaysSell */
+
+/* ---- fixtures: {id,name,cls,q,lvl,count,exp,verdict,reason,value,scope,bag,tab,slot,index} ----
+   value is TOTAL copper (LUA: ui.rescan price * count); null = unknown. */
+const RANKED = [
+  {id:9001,name:"Soggy Runecloth",cls:7,q:1,count:40,exp:"cata",verdict:"keep",reason:"never-sell list",value:4000,scope:"bags",bag:0,slot:1},
+  {id:9002,name:"Gleaming Warplate",cls:4,q:3,lvl:590,exp:"tww",verdict:"sell",reason:"always-sell list",value:2500000,scope:"bags",bag:1,slot:2},
+  {id:101,name:"Warborn Chestguard",cls:4,q:4,lvl:610,exp:"tww",verdict:"keep",reason:"in equipment set",value:null,scope:"bags",bag:0,slot:3},
+  {id:102,name:"Dragonflight Greaves",cls:4,q:3,lvl:480,exp:"df",verdict:"disenchant",reason:"disenchantable",value:null,scope:"bags",bag:0,slot:4,bound:true},
+  {id:103,name:"Shadowlands Helm",cls:4,q:2,lvl:200,exp:"sl",verdict:"disenchant",reason:"disenchantable",value:null,scope:"bags",bag:0,slot:5,bound:false},
+  {id:104,name:"Legion Breastplate",cls:4,q:4,lvl:150,exp:"legion",verdict:"vendor",reason:"vendor price",value:15000,scope:"bank",bag:-1,slot:6},
+  {id:105,name:"Midnight Girdle",cls:4,q:3,lvl:640,exp:"midnight",verdict:"keep",reason:"uncollected look",value:null,scope:"bags",bag:1,slot:1},
+  {id:106,name:"TWW Gauntlets",cls:4,q:3,lvl:605,exp:"tww",verdict:"keep",reason:"uncollected look",value:null,scope:"bags",bag:1,slot:3},
+  {id:107,name:"Dragonflight Belt",cls:4,q:2,lvl:470,exp:"df",verdict:"disenchant",reason:"disenchantable",value:null,scope:"bank",bag:-1,slot:4,bound:true},
+  {id:108,name:"TWW Boots",cls:4,q:3,lvl:600,exp:"tww",verdict:"sell",reason:"worth listing",value:1200000,scope:"bags",bag:1,slot:5},
+  {id:201,name:"Rusty War Axe",cls:2,q:2,lvl:180,exp:"wod",verdict:"disenchant",reason:"disenchantable",value:null,scope:"bags",bag:0,slot:7,bound:false},
+  {id:202,name:"Auctionable Longsword",cls:2,q:4,lvl:620,exp:"tww",verdict:"sell",reason:"worth listing",value:5000000,scope:"bags",bag:0,slot:8},
+  {id:203,name:"Ceremonial Dagger",cls:2,q:1,lvl:10,exp:"classic",verdict:"vendor",reason:"vendor price",value:250,scope:"bags",bag:0,slot:9},
+  {id:204,name:"TWW Mace",cls:2,q:3,lvl:610,exp:"tww",verdict:"keep",reason:"uncollected look",value:null,scope:"bags",bag:0,slot:10},
+  {id:301,name:"Mana Potion",cls:0,q:1,count:20,exp:"tww",verdict:"keep",reason:"current mats",value:20000,scope:"bags",bag:0,slot:11},
+  {id:302,name:"Dusty Elixir",cls:0,q:1,count:5,exp:"cata",verdict:"vendor",reason:"vendor price",value:500,scope:"bags",bag:0,slot:12},
+  {id:303,name:"Bulging Cache",cls:0,q:2,exp:"df",verdict:"use",reason:"openable",value:null,scope:"bags",bag:0,slot:13},
+  {id:304,name:"Caged Moth",cls:17,q:3,exp:"tww",verdict:"use",reason:"uncollected pet",value:null,scope:"bags",bag:0,slot:14},
+  {id:401,name:"TWW Ore",cls:7,q:1,count:80,exp:"tww",verdict:"keep",reason:"current mats",value:80000,scope:"bags",bag:2,slot:1},
+  {id:402,name:"Old Cloth",cls:7,q:1,count:60,exp:"mop",verdict:"vendor",reason:"vendor price",value:3000,scope:"bank",bag:-1,slot:3},
+  {id:501,name:"Cracked Ruby",cls:3,q:2,exp:"df",verdict:"vendor",reason:"vendor price",value:1200,scope:"bags",bag:2,slot:3},
+  {id:601,name:"Old Enchant Scroll",cls:8,q:2,exp:"sl",verdict:"vendor",reason:"vendor price",value:800,scope:"bags",bag:2,slot:4},
+  {id:701,name:"Recipe: Ancient Bread",cls:9,q:2,exp:"classic",verdict:"keep",reason:"needs review",value:null,scope:"bags",bag:2,slot:5},
+  {id:801,name:"Embroidered Bag",cls:1,q:3,exp:"bfa",verdict:"keep",reason:"needs review",value:null,scope:"bags",bag:2,slot:6},
+  {id:901,name:"Scrap of Notes",cls:12,q:1,exp:"df",verdict:"destroy",reason:"quest complete",value:null,scope:"bags",bag:3,slot:1},
+  {id:902,name:"Sealed Orders",cls:12,q:1,exp:"tww",verdict:"keep",reason:"quest item",value:null,scope:"bags",bag:3,slot:2},
+  {id:1001,name:"Lucky Charm",cls:15,q:1,exp:"classic",verdict:"vendor",reason:"vendor price",value:100,scope:"bags",bag:3,slot:3},
+  {id:1101,name:"Blacksmith Hammer",cls:19,q:2,exp:"tww",verdict:"keep",reason:"profession tool",value:null,scope:"bags",bag:3,slot:4},
+  {id:1201,name:"Oak Chair",cls:20,q:2,exp:"tww",verdict:"use",reason:"uncollected decor",value:null,scope:"bags",bag:3,slot:5},
+  {id:1301,name:"TWW Herb",cls:5,q:1,count:50,exp:"tww",verdict:"keep",reason:"current mats",value:25000,scope:"bags",bag:4,slot:1},
+  {id:1302,name:"Ancient Reagent",cls:5,q:1,count:12,exp:"wotlk",verdict:"vendor",reason:"vendor price",value:2400,scope:"warbank",tab:1,index:5},
+  {id:1401,name:"Iron Arrow",cls:6,q:1,count:200,exp:"classic",verdict:"vendor",reason:"vendor price",value:2000,scope:"bags",bag:4,slot:3},
+  {id:1402,name:"Odd Gizmo",cls:16,q:1,exp:"classic",verdict:"vendor",reason:"vendor price",value:50,scope:"bags",bag:4,slot:5},
+  {id:1501,name:"Doomed Artifact",cls:15,q:4,exp:"sl",verdict:"destroy",reason:"flagged destroy",value:null,scope:"bags",bag:4,slot:4},
+];
+
+/* ---- state (LUA: ui.lua window-state locals) ---- */
+let groupMode = "category", filter = "all", searchText = "";
+let sortMode = "off", sortReverse = false;
+let collapsed = {}, selected = {}, merchantOpen = false, isEnchanter = false;
+
+const $ = (id) => document.getElementById(id);
+
+/* LUA: ui.lua ui.formatGold */
+function formatGold(copper) {
+  if (copper == null) return "?";
+  if (copper >= 10000) return String(Math.floor(copper / 10000)).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "g";
+  if (copper >= 100) return Math.floor(copper / 100) + "s";
+  return Math.floor(copper) + "c";
+}
+/* LUA: ui.lua ui.entryKey */
+function entryKey(e) {
+  return e.scope + ":" + (e.bag != null ? e.bag : e.tab) + ":" + (e.slot != null ? e.slot : e.index);
+}
+/* LUA: ui.lua ui.searchMatch */
+function searchMatch(nameLower, query) {
+  return query === "" || (nameLower && nameLower.indexOf(query) !== -1);
+}
+/* LUA: ui.lua mainKeyFor/mainLabel/subKeyFor/subLabel */
+function mainKeyFor(e, mode) {
+  if (mode === "expansion") return e.exp || null;
+  return (e.cls != null && CATEGORY_LABEL[e.cls]) ? e.cls : null;
+}
+function mainLabel(mode, key) { return mode === "expansion" ? EXP_LABEL[key] : CATEGORY_LABEL[key]; }
+function subKeyFor(e, mode) {
+  if (mode === "expansion") return (e.cls != null && CATEGORY_LABEL[e.cls]) ? e.cls : null;
+  return e.exp || null;
+}
+function subLabel(mode, key) { return mode === "expansion" ? CATEGORY_LABEL[key] : EXP_LABEL[key]; }
+
+/* LUA: ui.lua ui.buildSections — pins lead, catch-all trails, sub-split on the other axis */
+function buildSections(ranked, mode, filt, pins) {
+  const order = mode === "expansion" ? EXP_ORDER : CATEGORY_ORDER;
+  const rank = {};
+  order.forEach((k, i) => { rank[k] = i + 1; });
+  const sortKey = (key) => {
+    if (key === "pinned:never") return -2;
+    if (key === "pinned:always") return -1;
+    if (key === "other") return 1e9;
+    return rank[key] != null ? rank[key] : 1e8;
+  };
+  const mains = {}, seen = [];
+  for (const e of ranked) {
+    if (filt !== "all" && e.verdict !== filt) continue;
+    let key;
+    if (e.id && pins && pins.never[e.id]) key = "pinned:never";
+    else if (e.id && pins && pins.always[e.id]) key = "pinned:always";
+    else { const mk = mainKeyFor(e, mode); key = (mk != null ? mk : "other"); }
+    if (!mains[key]) { mains[key] = {key, entries: []}; seen.push(key); }
+    mains[key].entries.push(e);
+  }
+  const seenAt = {};
+  seen.forEach((k, i) => { seenAt[k] = i; });
+  seen.sort((a, b) => (sortKey(a) - sortKey(b)) || (seenAt[a] - seenAt[b]));
+  const subOrder = mode === "expansion" ? CATEGORY_ORDER : EXP_ORDER;
+  const subRank = {};
+  subOrder.forEach((k, i) => { subRank[k] = i + 1; });
+  const sections = [];
+  for (const key of seen) {
+    const main = mains[key];
+    let label;
+    if (key === "pinned:never") label = "Never Sell";
+    else if (key === "pinned:always") label = "Always Sell";
+    else if (key === "other") label = mode === "expansion" ? "Unknown" : "Other";
+    else label = mainLabel(mode, key);
+    const splittable = key !== "other" && key !== "pinned:never" && key !== "pinned:always";
+    if (!splittable) {
+      sections.push({key: mode + ":" + key, label, entries: main.entries});
+    } else {
+      const subs = {}, subSeen = [];
+      for (const e of main.entries) {
+        const sk = subKeyFor(e, mode) != null ? subKeyFor(e, mode) : "other";
+        if (!subs[sk]) { subs[sk] = []; subSeen.push(sk); }
+        subs[sk].push(e);
+      }
+      if (subSeen.length < 2) {
+        sections.push({key: mode + ":" + key, label, entries: main.entries});
+      } else {
+        const subAt = {};
+        subSeen.forEach((k, i) => { subAt[k] = i; });
+        subSeen.sort((a, b) => ((subRank[a] || 1e9) - (subRank[b] || 1e9)) || (subAt[a] - subAt[b]));
+        for (const sk of subSeen) {
+          let suffix = "";
+          if (sk !== "other") { const sl = subLabel(mode, sk); if (sl) suffix = ": " + sl; }
+          sections.push({key: mode + ":" + key + ":" + sk, label: label + suffix, entries: subs[sk]});
+        }
+      }
+    }
+  }
+  return sections;
+}
+
+/* LUA: ui.lua ui.sortEntries (sort labels live in the #vw-sort options) */
+function sortEntries(entries, mode, reverse) {
+  mode = mode || "off";
+  const pos = new Map(), names = new Map();
+  entries.forEach((e, i) => { pos.set(e, i); names.set(e, (e.name || "").toLowerCase()); });
+  const quality = (e) => (e.q != null ? e.q : -1);
+  const ordered = (a, b) => {
+    if (mode === "quality") {
+      const qa = quality(a), qb = quality(b);
+      if (qa !== qb) return qa > qb;
+      const la = a.lvl || 0, lb = b.lvl || 0;
+      if (la !== lb) return la > lb;
+      const va = a.value != null ? a.value : -1, vb = b.value != null ? b.value : -1;
+      if (va !== vb) return va > vb;
+    } else if (mode === "value") {
+      const va = a.value != null ? a.value : -1, vb = b.value != null ? b.value : -1;
+      if (va !== vb) return va > vb;
+      const qa = quality(a), qb = quality(b);
+      if (qa !== qb) return qa > qb;
+    } else if (mode !== "name") {
+      return pos.get(a) < pos.get(b);
+    }
+    if (names.get(a) !== names.get(b)) return names.get(a) < names.get(b);
+    return pos.get(a) < pos.get(b);
+  };
+  const cmp = reverse
+    ? (a, b) => { if (ordered(a, b)) return 1; if (ordered(b, a)) return -1; return pos.get(a) - pos.get(b); }
+    : (a, b) => {
+        const ab = ordered(a, b), ba = ordered(b, a);
+        if (ab && !ba) return -1;
+        if (ba && !ab) return 1;
+        return pos.get(a) - pos.get(b);
+      };
+  entries.sort(cmp);
+  return entries;
+}
+
+/* DESIGN 9: the disenchant operation adapts to context. On an enchanter
+   it means in-person disenchanting; otherwise mailing to the named
+   enchanter — and anything that can go neither way is reported blocked
+   with its reason instead of silently skipped. Port: same partition over
+   entry.item bound/scope + a live enchanting check (skill 333; verify
+   against Blizzard source, and verify whether DE targeting accepts
+   bank/warbank slots before enabling those in person). */
+function dePartition(list, onEnchanter) {
+  const ready = [], blocked = [];
+  for (const e of list) {
+    if (e.scope !== "bags") blocked.push({e, why: "stowed"});
+    else if (!onEnchanter && e.bound) blocked.push({e, why: "soulbound"});
+    else ready.push(e);
+  }
+  return {ready, blocked};
+}
+
+/* LUA: ui.lua ui.computeSelection */
+function computeSelection(ranked, sel) {
+  const queued = [];
+  let keepCount = 0;
+  const totals = {items: 0, slots: 0, gold: 0, groups: {}};
+  for (const e of ranked) {
+    if (sel[entryKey(e)]) {
+      if (ACTIONABLE[e.verdict]) {
+        queued.push(e);
+        totals.slots += 1;
+        totals.items += (e.count || 1);
+        totals.gold += (e.value || 0);
+        totals.groups[e.verdict] = (totals.groups[e.verdict] || 0) + 1;
+      } else {
+        keepCount += 1;
+      }
+    }
+  }
+  return {queued, totals, keepCount};
+}
+/* LUA: ui.lua ICON_SIZE/PITCH/COLS/HEAD_H (mirror of the CSS vars; COLS is 10 per DESIGN 7) */
+const ICON = 36, PITCH = 40, COLS = 10, HEAD_H = 20;
+let lastSections = [], lastQueued = [], lastTotals = null, lastKeeps = 0, mockNote = null;
+
+/* LUA: ui.lua updateTexts — header, footer, action buttons */
+function updateTexts() {
+  let items = 0, slots = 0, gold = 0;
+  for (const e of RANKED) { items += (e.count || 1); slots += 1; gold += (e.value || 0); }
+  $("vw-stats").textContent = items + " items  •  " + slots + " slots  •  ~" + formatGold(gold);
+  $("vw-source").textContent = "Source: mock fixtures";
+  const t = lastTotals, g = t.groups;
+  let sel = "Selected: " + t.items + " items, " + t.slots + " slots, ~" + formatGold(t.gold);
+  if (lastKeeps > 0) sel += " (+" + lastKeeps + " keeps)";
+  $("vw-footer").textContent = mockNote || sel;
+  mockNote = null;
+  $("vw-footer-groups").textContent = "use " + (g.use || 0) + "  •  sell " + (g.sell || 0) +
+    "  •  disenchant " + (g.disenchant || 0) + "  •  vendor " + (g.vendor || 0) +
+    "  •  destroy " + (g.destroy || 0);
+  setButton("vw-btn-use", "Use", g.use || 0, true);
+  setButton("vw-btn-sell", "Sell", g.sell || 0, true);
+  const dePart = dePartition(lastQueued.filter((e) => e.verdict === "disenchant"), isEnchanter);
+  const deBtn = $("vw-btn-disenchant");
+  deBtn.textContent = (isEnchanter ? "Disenchant (" : "Mail for DE (") + dePart.ready.length + ")";
+  deBtn.disabled = dePart.ready.length === 0;
+  const deNote = $("vw-de-note");
+  if (dePart.blocked.length > 0) {
+    const whys = {};
+    for (const b of dePart.blocked) whys[b.why] = (whys[b.why] || 0) + 1;
+    const parts = [];
+    if (whys.soulbound) parts.push(whys.soulbound + " soulbound");
+    if (whys.stowed) parts.push(whys.stowed + " stowed");
+    deNote.textContent = dePart.blocked.length + " can't go: " + parts.join(", ");
+    deNote.style.display = "block";
+    deBtn.title = (isEnchanter ? "Disenchant " : "Mail ") + dePart.ready.length
+      + " (" + parts.join(", ") + " blocked)";
+  } else {
+    deNote.style.display = "none";
+    deBtn.title = isEnchanter ? "Disenchant the selected items in person"
+      : "Mail the selected items to your enchanter";
+  }
+  setButton("vw-btn-vendor", "Vendor", g.vendor || 0, merchantOpen);
+  setButton("vw-btn-destroy", "Destroy", g.destroy || 0, true);
+  $("vw-btn-vendor").title = merchantOpen ? "Sell the selected items at a merchant"
+    : "Vendor needs an open merchant window";
+  /* DESIGN 8: the Actions group frames itself around the live selection */
+  const nSel = t.slots + lastKeeps;
+  $("vw-lab-act").textContent = nSel > 0 ? "Actions · " + nSel + " selected" : "Actions";
+  $("vw-act-hint").style.display = nSel > 0 ? "none" : "block";
+  $("vw-window").classList.toggle("vw-no-sel", nSel === 0);
+}
+/* LUA: ui.lua setButton */
+function setButton(id, label, n, ctxOK) {
+  const b = $(id);
+  b.textContent = label + " (" + n + ")";
+  b.disabled = !(n > 0 && ctxOK);
+}
+
+/* LUA: ui.lua updateHeaderPulse — collapsed headers holding search matches pulse */
+function updateHeaderPulse() {
+  document.querySelectorAll("#vw-child .vw-sec-head").forEach((h) => {
+    h.classList.toggle("vw-hit", h.dataset.hit === "1");
+  });
+}
+function headerHasHit(sec) {
+  if (!collapsed[sec.key] || searchText === "") return false;
+  return sec.entries.some((e) => searchMatch(e.name.toLowerCase(), searchText));
+}
+
+/* LUA: ui.lua applySearch — dim non-matches in place, no re-layout */
+function applySearch() {
+  document.querySelectorAll("#vw-child .vw-icon").forEach((el) => {
+    el.classList.toggle("vw-dim", !searchMatch(el.dataset.name, searchText));
+  });
+  for (const sec of lastSections) {
+    const h = document.querySelector('.vw-sec-head[data-key="' + sec.key + '"]');
+    if (h) h.dataset.hit = headerHasHit(sec) ? "1" : "0";
+  }
+  updateHeaderPulse();
+}
+
+/* DESIGN 7: the verdict filter is a sidebar facet list (label left,
+   count right, active row highlighted). Port: button pool like tabs. */
+function renderFacets() {
+  const counts = {all: RANKED.length};
+  for (const e of RANKED) counts[e.verdict] = (counts[e.verdict] || 0) + 1;
+  const present = ["all"];
+  for (const v of VERDICT_ORDER) if (counts[v]) present.push(v);
+  const tabs = $("vw-tabs");
+  tabs.innerHTML = "";
+  for (const v of present) {
+    const label = v === "all" ? "All" : VERDICT_LABEL[v];
+    const b = document.createElement("button");
+    b.className = "vw-btn";
+    const nm = document.createElement("span");
+    nm.className = "vw-f-name";
+    nm.textContent = label;
+    const ct = document.createElement("span");
+    ct.className = "vw-f-count";
+    ct.textContent = counts[v];
+    b.appendChild(nm);
+    b.appendChild(ct);
+    b.title = v === "all" ? "Show everything (" + counts[v] + ")"
+      : "Show only " + label.toLowerCase() + " items (" + counts[v] + ")";
+    b.setAttribute("aria-pressed", v === filter ? "true" : "false");
+    b.onclick = () => { filter = v; render(); };
+    tabs.appendChild(b);
+  }
+}
+
+/* LUA: ui.lua icon OnEnter tooltip (ANCHOR_RIGHT): name, "Verdict — reason", "Value: X" */
+function showTooltip(anchor, e) {
+  const tt = $("vw-tooltip"), win = $("vw-window");
+  tt.querySelector(".tt-name").textContent = e.name;
+  tt.querySelector(".tt-name").style.color = "var(--vw-q" + e.q + ")";
+  tt.querySelector(".tt-verdict").textContent = VERDICT_LABEL[e.verdict] + " — " + e.reason;
+  tt.querySelector(".tt-value").textContent = e.value != null ? "Value: " + formatGold(e.value) : "";
+  const wr = win.getBoundingClientRect(), r = anchor.getBoundingClientRect();
+  tt.style.display = "block";
+  tt.style.left = Math.min(r.right - wr.left + 8, 660 - 270) + "px";
+  tt.style.top = Math.max(r.top - wr.top - 8, 4) + "px";
+}
+function hideTooltip() { $("vw-tooltip").style.display = "none"; }
+
+/* LUA: ui.lua render — headers + icon grid, same y-math (HEAD_H rows, PITCH grid, +6 gap) */
+function render() {
+  lastSections = buildSections(RANKED, groupMode, filter, PINS);
+  const child = $("vw-child");
+  child.innerHTML = "";
+  hideTooltip();
+  let y = 0;
+  for (const sec of lastSections) {
+    sortEntries(sec.entries, sortMode, sortReverse);
+    const head = document.createElement("button");
+    head.className = "vw-sec-head";
+    head.dataset.key = sec.key;
+    head.dataset.hit = headerHasHit(sec) ? "1" : "0";
+    const yStart = y; /* wrap-relative below: head/icons anchor to the section wrap */
+    head.style.top = "0px";
+    head.title = "Click: collapse section | Shift-click: select section";
+    const shut = !!collapsed[sec.key];
+    head.innerHTML = '<span class="vw-sec-toggle">' + (shut ? "▸" : "▾") + "</span>";
+    const lab = document.createElement("span");
+    lab.className = "vw-sec-label";
+    /* DESIGN: during search, headers show matches/total so the set stays oriented */
+    let count = " (" + sec.entries.length + ")";
+    if (searchText !== "") {
+      const hits = sec.entries.filter((e) => searchMatch(e.name.toLowerCase(), searchText)).length;
+      count = " (" + hits + "/" + sec.entries.length + ")";
+    }
+    lab.textContent = sec.label + count;
+    head.appendChild(lab);
+    head.onclick = (ev) => {
+      if (ev.shiftKey) toggleSection(sec.entries);
+      else { if (collapsed[sec.key]) delete collapsed[sec.key]; else collapsed[sec.key] = 1; render(); }
+    };
+    const wrap = document.createElement("div");
+    wrap.className = "vw-sec";
+    wrap.appendChild(head);
+    y += HEAD_H;
+    if (!shut) {
+      sec.entries.forEach((e, j) => {
+        const col = j % COLS, row = Math.floor(j / COLS);
+        const b = document.createElement("button");
+        b.className = "vw-icon";
+        b.style.background = "var(--vw-q" + e.q + ")"; /* LUA: stock quality plate */
+        b.style.left = (4 + col * PITCH) + "px";
+        b.style.top = (HEAD_H + row * PITCH) + "px";
+        b.dataset.name = e.name.toLowerCase();
+        const art = document.createElement("span");
+        art.className = "vw-art";
+        art.textContent = e.name.charAt(0);
+        b.appendChild(art);
+        const dot = document.createElement("span");
+        dot.className = "vw-dot";
+        dot.style.background = "var(--vw-v-" + e.verdict + ")";
+        b.appendChild(dot);
+        if ((e.count || 1) > 1) {
+          const c = document.createElement("span");
+          c.className = "vw-count";
+          c.textContent = e.count;
+          b.appendChild(c);
+        }
+        if ((e.cls === 2 || e.cls === 4) && (e.lvl || 0) > 1) {
+          const l = document.createElement("span");
+          l.className = "vw-level";
+          l.textContent = e.lvl;
+          b.appendChild(l);
+        }
+        if (selected[entryKey(e)]) b.classList.add("vw-sel");
+        if (!searchMatch(b.dataset.name, searchText)) b.classList.add("vw-dim");
+        b.onclick = () => toggleKey(entryKey(e));
+        b.onmouseenter = () => showTooltip(b, e);
+        b.onmouseleave = hideTooltip;
+        wrap.appendChild(b);
+      });
+      y += Math.ceil(sec.entries.length / COLS) * PITCH + 6;
+    }
+    wrap.style.height = (y - yStart) + "px";
+    child.appendChild(wrap);
+  }
+  child.style.height = Math.max(y, 1) + "px";
+  const noMatch = searchText !== "" && lastSections.length > 0 &&
+    lastSections.every((sec) => !sec.entries.some((e) => searchMatch(e.name.toLowerCase(), searchText)));
+  $("vw-empty").style.display = lastSections.length === 0 ? "block" : "none";
+  $("vw-nomatch").style.display = noMatch ? "block" : "none";
+  if (noMatch) $("vw-nomatch").textContent = "No matches for \u201C" + $("vw-search").value + "\u201D";
+  renderFacets();
+  updateHeaderPulse();
+  $("vw-mode-cat").setAttribute("aria-pressed", groupMode === "category" ? "true" : "false");
+  $("vw-mode-exp").setAttribute("aria-pressed", groupMode === "expansion" ? "true" : "false");
+  const sel = computeSelection(RANKED, selected);
+  lastQueued = sel.queued; lastTotals = sel.totals; lastKeeps = sel.keepCount;
+  updateTexts();
+}
+
+/* LUA: ui.lua ui.toggleKey / ui.toggleSection / ui.selectShown / ui.clearSelection */
+function toggleKey(key) {
+  if (!key) return;
+  if (selected[key]) delete selected[key]; else selected[key] = 1;
+  render();
+}
+function toggleSection(entries) {
+  if (!entries || entries.length === 0) return;
+  const all = entries.every((e) => selected[entryKey(e)]);
+  for (const e of entries) {
+    if (all) delete selected[entryKey(e)]; else selected[entryKey(e)] = 1;
+  }
+  render();
+}
+function selectShown() {
+  for (const sec of lastSections) {
+    if (!collapsed[sec.key]) for (const e of sec.entries) selected[entryKey(e)] = 1;
+  }
+  render();
+}
+function clearSelection() { selected = {}; render(); }
+
+/* MOCK-ONLY: action buttons announce instead of acting (Lua acts on a hardware event). */
+function mockAct(verb, count) {
+  mockNote = count > 0 ? "MOCK: would " + verb + " " + count + " item(s) (no-op)" : null;
+  updateTexts();
+}
+
+/* ---- wiring ---- */
+$("vw-mode-cat").onclick = () => { groupMode = "category"; render(); };
+$("vw-mode-exp").onclick = () => { groupMode = "expansion"; render(); };
+$("vw-search").addEventListener("input", (ev) => { searchText = ev.target.value.toLowerCase(); applySearch(); });
+$("vw-search").addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" || ev.key === "Enter") ev.target.blur(); /* LUA: ClearFocus */
+});
+$("vw-search-clear").onclick = () => { $("vw-search").value = ""; searchText = ""; $("vw-search").blur(); applySearch(); };
+$("vw-select-shown").onclick = selectShown;
+$("vw-clear").onclick = clearSelection;
+/* DESIGN: sort is a labeled dropdown + visible direction toggle (no hidden clicks) */
+$("vw-sort").onchange = () => { sortMode = $("vw-sort").value; render(); };
+$("vw-sort-dir").onclick = () => {
+  sortReverse = !sortReverse;
+  $("vw-sort-dir").textContent = sortReverse ? "↓" : "↑";
+  $("vw-sort-dir").setAttribute("aria-pressed", sortReverse ? "true" : "false");
+  render();
+};
+document.querySelector(".vw-close").onclick = () => { $("vw-window").style.display = "none"; $("mock-show").style.display = "inline-block"; };
+$("mock-show").onclick = () => { $("vw-window").style.display = "block"; $("mock-show").style.display = "none"; };
+$("vw-btn-use").onclick = () => mockAct("use", lastTotals.groups.use || 0);
+$("vw-btn-sell").onclick = () => mockAct("list", lastTotals.groups.sell || 0);
+$("vw-btn-disenchant").onclick = () => {
+  const p = dePartition(lastQueued.filter((e) => e.verdict === "disenchant"), isEnchanter);
+  mockAct(isEnchanter ? "disenchant" : "mail for DE", p.ready.length);
+};
+$("vw-btn-vendor").onclick = () => mockAct("vendor", lastTotals.groups.vendor || 0);
+$("vw-btn-destroy").onclick = () => mockAct("destroy", lastTotals.groups.destroy || 0);
+function setLook(name) {
+  if (name !== "default" && name !== "baganator") return;
+  document.body.dataset.look = name;
+  document.querySelectorAll("[data-setlook]").forEach((o) => o.setAttribute("aria-pressed", o.dataset.setlook === name ? "true" : "false"));
+}
+document.querySelectorAll("[data-setlook]").forEach((b) => { b.onclick = () => setLook(b.dataset.setlook); });
+$("mock-merchant").onchange = (ev) => { merchantOpen = ev.target.checked; updateTexts(); }; /* LUA: MERCHANT_SHOW/CLOSED */
+$("mock-enchanter").onchange = (ev) => { isEnchanter = ev.target.checked; updateTexts(); }; /* LUA: live GetProfessions scan for skill 333 */
+
+/* MOCK-ONLY: ?look=&filter=&search=&select=&enchanter=&merchant= deep-link mock states */
+if (typeof location !== "undefined" && location.search) {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get("look")) setLook(q.get("look"));
+    const fv = q.get("filter");
+    if (fv && (fv === "all" || VERDICT_LABEL[fv])) filter = fv;
+    if (q.get("search")) { $("vw-search").value = q.get("search"); searchText = q.get("search").toLowerCase(); }
+    const sq = q.get("select");
+    if (sq) for (const id of sq.split(",")) {
+      const hit = RANKED.filter((e) => String(e.id) === id)[0];
+      if (hit) selected[entryKey(hit)] = 1;
+    }
+    if (q.get("enchanter") === "1") { isEnchanter = true; $("mock-enchanter").checked = true; }
+    if (q.get("merchant") === "1") { merchantOpen = true; $("mock-merchant").checked = true; }
+  } catch (err) {}
+}
+
+render();
+</script>
+</body>
+</html>

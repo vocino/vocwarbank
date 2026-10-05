@@ -10,7 +10,7 @@ std = "lua51"
 max_line_length = false
 self = false
 unused_args = false
-exclude_files = { ".reference/**" }
+exclude_files = { ".reference/**", "mock/**" }
 
 -- Globals this addon owns: SavedVariables, slash registration, popups.
 globals = {
@@ -34,7 +34,7 @@ read_globals = {
   "MerchantFrame", "MailFrame", "AuctionHouseFrame",
   "ClickSendMailItemButton", "SendMailMailButton", "SendMailNameEditBox", "SendMailSubjectEditBox",
   -- optional neighbors (presence-gated)
-  "Auctionator", "EllesmereUI", "OEMarketInfo", "Syndicator", "TSM_API",
+  "Auctionator", "OEMarketInfo", "Syndicator", "TSM_API",
 }
 
 -- Tests install stubs onto _G by design.

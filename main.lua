@@ -66,10 +66,7 @@ end
 local function theme()
   local s = ns.theme.status()
   ns.say("look: " .. s.look
-    .. " (eui:" .. (s.euiFacade and "yes" or "no")
-    .. " baganator:" .. (s.baganator and s.baganatorSkin or "absent") .. ")")
-  if not s.euiMaster then ns.say("EUI third-party skins are OFF (master toggle).") end
-  if not s.euiAddon then ns.say("EUI skin for VocWarbank is OFF (per-addon toggle).") end
+    .. " (baganator:" .. (s.baganator and s.baganatorSkin or "absent") .. ")")
   if s.error then ns.say("last skin error [" .. s.error.style .. "]: " .. s.error.err) end
 end
 

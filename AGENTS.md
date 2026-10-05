@@ -7,7 +7,7 @@
 - `providers.lua`: price/expansion data layer behind one contract
 - `scanner.lua`: container-agnostic scan (warbank, bank, bags)
 - `ranking.lua`: the verdict rules
-- `theme.lua`: EllesmereUI / Baganator Dark / stock looks
+- `theme.lua`: Baganator Dark / stock looks
 - `ui.lua`: the triage window
 - `settings.lua`: native Settings panel (Settings > AddOns > VocWarbank)
 - `tests/`: headless tests (`lua tests/run.lua` from the repo root)
