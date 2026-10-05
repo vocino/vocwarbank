@@ -62,3 +62,7 @@ stubbed WoW APIs. No game client needed:
 ## License
 
 MIT
+
+---
+
+Part of the Voc family: tiny addons that do one job.
