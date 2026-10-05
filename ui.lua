@@ -328,6 +328,12 @@ function ui.dePartition(list, inPerson)
   return ready, blocked
 end
 
+-- The Vendor click acts whenever something is selected or queued:
+-- queuing needs no prior queue, unlike the immediate actions.
+function ui.vendorEnabled(selVendor, qVendor)
+  return (selVendor or 0) > 0 or (qVendor or 0) > 0
+end
+
 -- "3 can't go: 2 soulbound, 1 stowed", or nil when nothing is blocked.
 function ui.blockedNote(blocked)
   if not blocked or blocked.total == 0 then return nil end
@@ -631,7 +637,11 @@ local function updateTexts()
   local vendorTip = "Queue the selected items for the vendor"
     .. (qVendor > 0 and (" (" .. qVendor .. " queued)") or "")
     .. " — click again to unqueue"
-  setButton(buttons.vendor, "Vendor", qVendor, selVendor > 0 or qVendor > 0, vendorTip)
+  local vendorOK = ui.vendorEnabled(selVendor, qVendor)
+  setButton(buttons.vendor, "Vendor", qVendor, vendorOK, vendorTip)
+  -- setButton gates on the label count too, so the empty-queue case it
+  -- just disabled re-enables here when a selection is waiting.
+  if vendorOK then buttons.vendor:Enable() end
   setButton(buttons.destroy, "Destroy", g.destroy or 0, true, "Destroy the selected items (with confirmation)")
   -- The Actions group frames itself around the live selection
   -- (DESIGN 8): narrow -> select -> act.

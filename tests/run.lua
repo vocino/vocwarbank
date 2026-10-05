@@ -480,6 +480,8 @@ do
   check("destroy is actionable", totals.groups.destroy == 1 and totals.groups.vendor == 2)
   check("keep and unknown verdicts are not queued", #queued == 3 and keeps == 2)
   check("trash is not a verdict the window knows", totals.groups.trash == nil)
+  check("vendor enables on selection or queue", u.vendorEnabled(5, 0) and u.vendorEnabled(0, 3)
+    and u.vendorEnabled(2, 2) and not u.vendorEnabled(0, 0) and not u.vendorEnabled(nil, nil))
 
   -- sort: value desc, reverse flips, ties keep bag order
   local list = { e(1, "vendor"), e(2, "vendor"), e(3, "vendor") }
