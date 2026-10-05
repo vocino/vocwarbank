@@ -6,7 +6,7 @@
 ## Category: Bags & Inventory
 ## IconTexture: Interface\Icons\INV_Misc_Coin_01
 ## SavedVariables: VocWarbankDB
-## OptionalDeps: Baganator, Syndicator, TradeSkillMaster, Auctionator, EllesmereUI, OribosExchange
+## OptionalDeps: Baganator, Syndicator, TradeSkillMaster, Auctionator, OribosExchange
 ## X-Website: https://github.com/vocino/vocwarbank
 ## X-License: MIT
 ## X-Curse-Project-ID: 1724546

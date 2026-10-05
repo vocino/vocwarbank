@@ -396,5 +396,29 @@ do
   check("open without Settings prints the path", said == "open Settings > AddOns > VocWarbank")
 end
 
+-- theme.lua: two looks, no Ellesmere. decide() resolves baganator vs
+-- default from the live Baganator state; status() reports no EUI fields.
+do
+  local tns = loadAddon("theme.lua")
+  local emptyPool = { EnumerateActive = function() return function() end end }
+  tns.theme.init({ window = {}, headPool = emptyPool, iconPool = emptyPool })
+  _G.C_AddOns = nil
+  _G.BAGANATOR_CONFIG, _G.BAGANATOR_CURRENT_PROFILE = nil, nil
+  tns.theme.decide()
+  check("stock without Baganator", tns.theme.current() == "default")
+  local st = tns.theme.status()
+  check("status has no EUI fields", st.euiFacade == nil and st.euiMaster == nil and st.euiAddon == nil)
+  check("status reports stock", st.look == "default" and st.baganator == false)
+  _G.C_AddOns = { IsAddOnLoaded = function(name) return name == "Baganator" end }
+  _G.BAGANATOR_CURRENT_PROFILE = "DEFAULT"
+  _G.BAGANATOR_CONFIG = { Profiles = { DEFAULT = { current_skin = "dark" } } }
+  tns.theme.decide()
+  check("dark Baganator picks baganator", tns.theme.current() == "baganator")
+  st = tns.theme.status()
+  check("status reports baganator", st.look == "baganator" and st.baganatorSkin == "dark")
+  check("no EUI entry point", tns.theme.onEUISkin == nil)
+  _G.C_AddOns, _G.BAGANATOR_CONFIG, _G.BAGANATOR_CURRENT_PROFILE = nil, nil, nil
+end
+
 print(string.format("%d passed, %d failed", pass, fail))
 os.exit(fail > 0 and 1 or 0)

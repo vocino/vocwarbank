@@ -8,3 +8,4 @@ ignore:
   - FAMILY.md
   - SPEC.md
   - VERSIONING.md
+  - mock

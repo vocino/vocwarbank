@@ -319,7 +319,6 @@ local function buildIcon(f)
   local r = { button = f, sel = sel, bg = bg, icon = icon, dot = dot,
     count = count, level = level, key = nil, entry = nil, searchName = "" }
   f._rec = r
-  f.Icon, f.Dot, f.Sel = icon, dot, sel -- named so the EUI tile fade can keep them
   f:SetScript("OnClick", function() ui.toggleKey(r.key) end)
   f:SetScript("OnEnter", function(self)
     local entry = r.entry
@@ -393,7 +392,6 @@ local function buildHeader(f)
     GameTooltip:Show()
   end)
   f:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  ns.theme.styleHeader(r)
   return r
 end
 
@@ -523,8 +521,8 @@ local function refreshTabs()
     if not b._rec then
       b:SetHeight(20)
       -- Tabs stay stock: upstream routes its own tabs through a
-      -- no-op skinner, even on Dark. (EUI still styles them.)
-      ns.theme.styleButton(b, true, true)
+      -- no-op skinner, even on Dark.
+      ns.theme.styleButton(b, true)
       b._rec = true
     end
     local label = v == "all" and "All" or verdictLabel(v)
@@ -900,7 +898,7 @@ function ui.init()
     b:SetSize(i == 1 and 78 or 82, 20)
     b:SetPoint("TOPLEFT", window, "TOPLEFT", i == 1 and 12 or 94, -52)
     b:SetScript("OnClick", function() groupMode = modes[i] render(lastRanked) end)
-    ns.theme.styleButton(b, true)
+    ns.theme.styleButton(b)
     groupButtons[i] = b
   end
   local selBtn = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
@@ -908,13 +906,13 @@ function ui.init()
   selBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -134, -52)
   selBtn:SetText("Select shown")
   selBtn:SetScript("OnClick", function() ui.selectShown() end)
-  ns.theme.styleButton(selBtn, true)
+  ns.theme.styleButton(selBtn)
   local clrBtn = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
   clrBtn:SetSize(60, 20)
   clrBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -70, -52)
   clrBtn:SetText("Clear")
   clrBtn:SetScript("OnClick", function() ui.clearSelection() end)
-  ns.theme.styleButton(clrBtn, true)
+  ns.theme.styleButton(clrBtn)
   searchBox = CreateFrame("EditBox", nil, window, "InputBoxTemplate")
   searchBox:SetSize(190, 20)
   searchBox:SetPoint("TOPLEFT", window, "TOPLEFT", 186, -52)
@@ -934,7 +932,7 @@ function ui.init()
   searchClear:SetPoint("TOPLEFT", window, "TOPLEFT", 380, -52)
   searchClear:SetText("x")
   searchClear:SetScript("OnClick", function() searchBox:SetText("") searchBox:ClearFocus() end)
-  ns.theme.styleButton(searchClear, true)
+  ns.theme.styleButton(searchClear)
   window:SetScript("OnHide", function()
     if searchBox:GetText() ~= "" then searchBox:SetText("") end
   end)
@@ -961,7 +959,7 @@ function ui.init()
     GameTooltip:Show()
   end)
   sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  ns.theme.styleButton(sortBtn, true)
+  ns.theme.styleButton(sortBtn)
   -- Anonymous: nothing addresses it by name (the bar is reached via
   -- scroll.ScrollBar), so it must not cost a global.
   scroll = CreateFrame("ScrollFrame", nil, window, "UIPanelScrollFrameTemplate")
@@ -1004,7 +1002,7 @@ function ui.init()
     b:SetSize(112, 22)
     b:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", def[2], 16)
     b:SetScript("OnClick", def[3])
-    ns.theme.styleButton(b, true)
+    ns.theme.styleButton(b)
     buttons[def[1]] = b
   end
   StaticPopupDialogs["VOCWARBANK_CONFIRM_TRASH"] = {
@@ -1085,10 +1083,7 @@ function ui.init()
       function() if window:IsShown() then ui.rescan(true) end end)
   end
   ns.theme.init({
-    window = window, close = closeBtn, scroll = scroll,
-    title = window.TitleText, headPool = headPool, iconPool = iconPool,
-    scrollBar = scroll.ScrollBar,
-    texts = { headerStats, headerSource, footer, footerGroups, emptyNote },
+    window = window, headPool = headPool, iconPool = iconPool,
     repaint = function()
       for b in iconPool:EnumerateActive() do
         local r = b._rec
@@ -1103,9 +1098,6 @@ function ui.init()
     ns.theme.decide()
   end)
   ns.theme.decide()
-  if EllesmereUI and EllesmereUI.RegisterSkin then
-    EllesmereUI.RegisterSkin("VocWarbank", ns.theme.onEUISkin)
-  end
 end
 
 function ui.toggle()

@@ -58,8 +58,8 @@ Two layers: providers fetch the data behind one contract, and the UI
 never talks to third-party addons directly. Prices cascade from
 Auctionator, TSM, and Oribos Exchange down to vendor prices;
 Syndicator (Baganator) feeds warbank contents when present. The
-window wears stock Blizzard chrome, or matches EllesmereUI or
-Baganator's Dark skin when one of them is running. `SPEC.md` has
+window wears stock Blizzard chrome, or matches
+Baganator's Dark skin when it is running. `SPEC.md` has
 the ranking rules and the full design.
 
 ## What's inside
@@ -70,7 +70,7 @@ the ranking rules and the full design.
 - `scanner.lua`: container-agnostic item scan
 - `ranking.lua`: the verdict rules
 - `ui.lua`: the triage window
-- `theme.lua`: matches EllesmereUI or Baganator Dark when present
+- `theme.lua`: matches Baganator Dark when present
 - `settings.lua`: native Settings panel
 - `SPEC.md`: the full spec
 - `tests/`: headless tests with stubbed WoW APIs

@@ -53,7 +53,7 @@ VocWarbank/
   scanner.lua   container-agnostic item scan
   ranking.lua   verdict rules (Core)
   ui.lua        the triage window (UI)
-  theme.lua     EllesmereUI / Baganator Dark / stock looks
+  theme.lua     Baganator Dark / stock looks
   settings.lua  options panel
   tests/        headless tests (lua tests/run.lua)
 ```
@@ -130,14 +130,8 @@ the verdict.
 
 ## Looks
 
-One window, three looks, picked live by theme.lua:
+One window, two looks, picked live by theme.lua:
 
-- EllesmereUI present (and skinning us): the suite's own textured
-  shell through its public facade — Shell, Panel, Inset, Button,
-  SquareIcon in follow-mode off a hidden quality ring per tile,
-  and a replicated house thumb strip on our legacy scrollbar (the
-  engine only skins modern bars) — matching by construction,
-  including the Modern flat variant.
 - Baganator loaded and running its Dark skin: a faithful
   replication of Skins/Dark.lua — same backdrop assets
   (dark-backgroundfile/dark-edgefile, edge 9 window / 6 buttons),
@@ -148,13 +142,10 @@ One window, three looks, picked live by theme.lua:
 - Otherwise stock Blizzard chrome, which is also what
   Baganator's own Blizzard skin looks like.
 
-EllesmereUI wins when both are present (Baganator itself
-auto-enables its EllesmereUI skin then, so all three match).
 Quality and verdict colors stay ours in every look — they are
-data, not chrome. Looks re-resolve on every scan; EUI is sticky
-until reload by the suite's own design. A failed look falls back
-to stock, says so once in chat, and retries on the next scan; `/vw
-theme` reports the live look, the EUI toggles, and any skin error.
+data, not chrome. Looks re-resolve on every scan. A failed look
+falls back to stock, says so once in chat, and retries on the
+next scan; `/vw theme` reports the live look and any skin error.
 
 ## Actions
 
@@ -201,7 +192,7 @@ prefix via `ns.say`.
 
 - Target the current retail interface version.
 - OptionalDeps on Baganator, Syndicator, TradeSkillMaster,
-  Auctionator, EllesmereUI, OribosExchange. Never hard-require them.
+  Auctionator, OribosExchange. Never hard-require them.
 - SavedVariables are account-wide.
 - MIT license. Public repo under vocino.
 - Looks follow theme.lua (see Looks); suites are never hard-required.
