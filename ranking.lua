@@ -34,7 +34,14 @@ local NO_APPEARANCE = {
 local function itemData(item)
   if not item.itemID then return nil end
   local info = { C_Item.GetItemInfo(item.itemID) }
-  if info[1] == nil then return nil end -- not cached yet
+  if info[1] == nil then
+    -- Not cached yet: ask for it (guarded; older clients lack the
+    -- call) and let GET_ITEM_INFO_RECEIVED trigger a re-rank.
+    if C_Item.RequestLoadItemDataByID then
+      pcall(C_Item.RequestLoadItemDataByID, item.itemID)
+    end
+    return nil
+  end
   return {
     quality = info[Q_QUALITY], equipLoc = info[Q_EQUIPLOC] or "", level = info[Q_LEVEL] or 0,
     sellPrice = info[Q_SELLPRICE] or 0, classID = info[Q_CLASS], subclassID = info[Q_SUBCLASS],
@@ -211,6 +218,12 @@ local function buildCompletedTitles()
     local okTitle, title = pcall(ql.GetTitleForQuestID, id)
     if okTitle and title and title ~= "" then completedTitles[title] = true end
   end
+end
+
+-- Quest completions land mid-session; drop the cached title set so
+-- the next rank rebuilds it. Called from the QUEST_TURNED_IN handler.
+function ranking.refreshQuests()
+  completedTitles = nil
 end
 
 local function questTitleFromLink(link)

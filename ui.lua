@@ -1022,12 +1022,16 @@ function ui.init()
     whileDead = true,
     hideOnEscape = true,
   }
+  -- Coalescing flag for the GET_ITEM_INFO_RECEIVED rescan below.
+  local itemInfoPending = false
   local ctx = CreateFrame("Frame")
   ctx:RegisterEvent("MERCHANT_SHOW")
   ctx:RegisterEvent("MERCHANT_CLOSED")
   ctx:RegisterEvent("AUCTION_HOUSE_SHOW")
   ctx:RegisterEvent("BAG_UPDATE_DELAYED")
   ctx:RegisterEvent("BANKFRAME_OPENED")
+  ctx:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+  ctx:RegisterEvent("QUEST_TURNED_IN")
   ctx:SetScript("OnEvent", function(_, event)
     if event == "MERCHANT_SHOW" then
       merchantOpen = true
@@ -1049,6 +1053,19 @@ function ui.init()
         end
       end
     elseif event == "BAG_UPDATE_DELAYED" or event == "BANKFRAME_OPENED" then
+      if window:IsShown() then ui.rescan(true) end
+    elseif event == "GET_ITEM_INFO_RECEIVED" then
+      -- Cold-cache items rank as "needs review"; re-rank once the data
+      -- lands. Coalesced: one delayed rescan per burst, not one per item.
+      if window:IsShown() and not itemInfoPending and C_Timer and C_Timer.After then
+        itemInfoPending = true
+        C_Timer.After(0.5, function()
+          itemInfoPending = false
+          if window:IsShown() then ui.rescan(true) end
+        end)
+      end
+    elseif event == "QUEST_TURNED_IN" then
+      ns.ranking.refreshQuests()
       if window:IsShown() then ui.rescan(true) end
     end
     if window:IsShown() then updateTexts() end
