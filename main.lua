@@ -25,6 +25,13 @@ end
 local priceSources = { auto = true, vendor = true, auctionator = true, tsm = true, oribos = true }
 local inventorySources = { auto = true, blizzard = true, syndicator = true }
 
+-- Settings changed under an open window apply immediately.
+local function refresh()
+  if ns.ui and ns.ui.isOpen and ns.ui.isOpen() and ns.ui.rescan then
+    ns.ui.rescan(true)
+  end
+end
+
 SLASH_VOCWARBANK1 = "/vw"
 SLASH_VOCWARBANK2 = "/vocwarbank"
 SlashCmdList.VOCWARBANK = function(msg)
@@ -61,15 +68,19 @@ SlashCmdList.VOCWARBANK = function(msg)
   elseif cmd == "source" and priceSources[rest] then
     ns.config.set("priceSource", rest)
     ns.providers.init()
+    refresh()
     print("VocWarbank: price source set to " .. rest .. ".")
   elseif cmd == "inventory" and inventorySources[rest] then
     ns.config.set("inventorySource", rest)
+    refresh()
     print("VocWarbank: warbank source set to " .. rest .. ".")
   elseif cmd == "scope" and (rest == "warbank" or rest == "bank" or rest == "bags" or rest == "all") then
     ns.config.set("scope", rest)
+    refresh()
     print("VocWarbank: scope set to " .. rest .. ".")
   elseif cmd == "threshold" and tonumber(rest) and tonumber(rest) > 0 then
     ns.config.set("ahThreshold", math.floor(tonumber(rest) * 10000))
+    refresh()
     print("VocWarbank: auction threshold set to " .. rest .. "g.")
   elseif cmd == "enchanter" and rest ~= "" then
     ns.config.set("enchanter", rest)
@@ -79,6 +90,7 @@ SlashCmdList.VOCWARBANK = function(msg)
     if not id then print("VocWarbank: give an item link or ID.")
     else
       ns.config.setListItem("neverSell", id, cmd == "never")
+      refresh()
       print("VocWarbank: item " .. id .. (cmd == "never" and " will always be kept." or " removed from never-sell."))
     end
   elseif cmd == "always" or cmd == "unalways" then
@@ -86,6 +98,7 @@ SlashCmdList.VOCWARBANK = function(msg)
     if not id then print("VocWarbank: give an item link or ID.")
     else
       ns.config.setListItem("alwaysSell", id, cmd == "always")
+      refresh()
       print("VocWarbank: item " .. id .. (cmd == "always" and " will always sell." or " removed from always-sell."))
     end
   else

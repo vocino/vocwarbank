@@ -19,6 +19,13 @@ settings.inventoryOptions = {
 local panel, category
 local refreshers = {}
 
+-- An open window re-ranks immediately so settings apply live.
+local function changed()
+  if ns.ui and ns.ui.isOpen and ns.ui.isOpen() and ns.ui.rescan then
+    ns.ui.rescan(true)
+  end
+end
+
 local function makeDropdown(y, label, options, get, set)
   local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   title:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
@@ -91,28 +98,28 @@ function settings.init()
   local y = -52
   y = y + makeDropdown(y, "Price source", settings.priceOptions,
     function() return ns.config.get("priceSource") end,
-    function(v) ns.config.set("priceSource", v) ns.providers.init() end)
+    function(v) ns.config.set("priceSource", v) ns.providers.init() changed() end)
   y = y + makeDropdown(y, "Warbank source", settings.inventoryOptions,
     function() return ns.config.get("inventorySource") end,
-    function(v) ns.config.set("inventorySource", v) end)
+    function(v) ns.config.set("inventorySource", v) changed() end)
   y = y + makeField(y, "TSM price key",
     function() return ns.config.get("tsmKey") end,
-    function(v) if v ~= "" then ns.config.set("tsmKey", v) end end)
+    function(v) if v ~= "" then ns.config.set("tsmKey", v) changed() end end)
   y = y + makeField(y, "Enchanter (mail disenchantables to)",
     function() return ns.config.get("enchanter") end,
-    function(v) ns.config.set("enchanter", v) end)
+    function(v) ns.config.set("enchanter", v) changed() end)
   y = y + makeField(y, "Auction threshold (gold)",
     function() return tostring((ns.config.get("ahThreshold") or 0) / 10000) end,
     function(v)
       local g = tonumber(v)
-      if g and g > 0 then ns.config.set("ahThreshold", math.floor(g * 10000)) end
+      if g and g > 0 then ns.config.set("ahThreshold", math.floor(g * 10000)) changed() end
     end)
   y = y + makeCheckbox(y, "Open automatically at vendors",
     function() return ns.config.get("autoOpenVendor") end,
-    function(v) ns.config.set("autoOpenVendor", v) end)
+    function(v) ns.config.set("autoOpenVendor", v) changed() end)
   y = y + makeCheckbox(y, "Open automatically at the auction house",
     function() return ns.config.get("autoOpenAuction") end,
-    function(v) ns.config.set("autoOpenAuction", v) end)
+    function(v) ns.config.set("autoOpenAuction", v) changed() end)
   local note = panel:CreateFontString(nil, "ARTWORK", "GameFontDisable")
   note:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
   note:SetWidth(400)
