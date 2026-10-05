@@ -652,6 +652,8 @@ function updateTexts() {
   /* DESIGN 10: Vendor queues (toggle per item); the count is the queued total */
   const qVendor = Object.values(queued.vendor).reduce((a, b) => a + b, 0);
   setButton("vw-btn-vendor", "Vendor", qVendor, (g.vendor || 0) > 0 || qVendor > 0);
+  /* setButton gates on the label count; an empty queue with a selection re-enables here */
+  if ((g.vendor || 0) > 0 || qVendor > 0) $("vw-btn-vendor").disabled = false;
   setButton("vw-btn-destroy", "Destroy", g.destroy || 0, true);
   $("vw-btn-vendor").title = "Queue the selected items for the vendor"
     + (qVendor > 0 ? " (" + qVendor + " queued)" : "")
