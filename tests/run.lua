@@ -175,18 +175,27 @@ sns = loadAddon("scanner.lua")
 out = sns.scanner.scan("bank")
 check("empty bank scans clean", #out == 0)
 
--- main.lua: slash registration
+-- main.lua: slash registration and chat voice
 _G.SlashCmdList = _G.SlashCmdList or {}
-loadAddon("main.lua")
+local mainNs = loadAddon("main.lua")
 check("short slash is /vw", _G.SLASH_VOCWARBANK1 == "/vw")
 check("long slash is /vocwarbank", _G.SLASH_VOCWARBANK2 == "/vocwarbank")
 check("slash handler installed", type(_G.SlashCmdList.VOCWARBANK) == "function")
+do
+  local said
+  local realPrint = print
+  print = function(s) said = s end
+  mainNs.say("hello")
+  print = realPrint
+  check("say prefixes the addon name", said == "|c" .. mainNs.PREFIX_COLOR .. "VocWarbank|r: hello")
+  check("family prefix color", mainNs.PREFIX_COLOR == "ff66ccff")
+end
 
 -- config: the real module against a scratch SavedVariable
 local function loadConfig(db)
-  local ns = { db = db }
-  assert(loadfile("config.lua"))("VocWarbank", ns)
-  return ns
+  local cns = { db = db }
+  assert(loadfile("config.lua"))("VocWarbank", cns)
+  return cns
 end
 
 do
@@ -263,27 +272,129 @@ qns.ranking.refreshQuests()
 local q3 = qns.ranking.rank({ qi })[1]
 check("quest refresh re-trashes", q3.verdict == "trash" and q3.reason == "quest complete")
 
--- main.lua: slash arg handling (chat silenced, then restored before checks)
+-- main.lua: slash arg handling (chat captured, then restored before checks)
 mock.reset()
 local mns = loadAddon("main.lua")
 mns.providers.init = function() end
-local rescans = 0
-mns.ui = { isOpen = function() return true end, rescan = function() rescans = rescans + 1 end }
+local rescans, toggles, opened = 0, 0, 0
+mns.ui = {
+  isOpen = function() return true end,
+  rescan = function() rescans = rescans + 1 end,
+  toggle = function() toggles = toggles + 1 end,
+}
+mns.settings = { open = function() opened = opened + 1 end }
+local printed = {}
 local realPrint = print
-print = function() end
+print = function(s) printed[#printed + 1] = s end
 _G.SlashCmdList.VOCWARBANK("source TSM")
 _G.SlashCmdList.VOCWARBANK("inventory Blizzard")
 _G.SlashCmdList.VOCWARBANK("scope BAGS")
 _G.SlashCmdList.VOCWARBANK("threshold 5")
 _G.SlashCmdList.VOCWARBANK("never 123")
+_G.SlashCmdList.VOCWARBANK("tsmkey DBMinBuyout")
+local beforeHelp = #printed
 _G.SlashCmdList.VOCWARBANK("bogus-command")
+local afterBogus = #printed
+_G.SlashCmdList.VOCWARBANK("help")
+_G.SlashCmdList.VOCWARBANK("")
+_G.SlashCmdList.VOCWARBANK("config")
 print = realPrint
 check("slash source is case-insensitive", mock.cfg.priceSource == "tsm")
 check("slash inventory is case-insensitive", mock.cfg.inventorySource == "blizzard")
 check("slash scope is case-insensitive", mock.cfg.scope == "bags")
 check("slash threshold sets copper", mock.cfg.ahThreshold == 50000)
 check("slash never lists the item", mock.cfg.neverSell[123] == true)
-check("slash refreshes the open window", rescans == 5)
+check("slash tsmkey keeps case", mock.cfg.tsmKey == "DBMinBuyout")
+check("slash refreshes the open window", rescans == 6)
+check("unknown command prints help", afterBogus - beforeHelp == 1 + #mns.HELP)
+check("help prints every line", #printed - afterBogus == 1 + #mns.HELP)
+check("bare /vw toggles the window", toggles == 1)
+check("/vw config opens the panel", opened == 1)
+check("chat lines carry the prefix", printed[1]:find("^|cff66ccffVocWarbank|r: ") ~= nil)
+
+-- settings.lua: native panel bound to the live SavedVariables
+do
+  local reg, checks, drops, callbacks = {}, 0, {}, {}
+  local openedID, headers = nil, {}
+  _G.Settings = {
+    RegisterVerticalLayoutCategory = function(n)
+      return { name = n, GetID = function() return 7 end }
+    end,
+    RegisterAddOnCategory = function() end,
+    RegisterAddOnSetting = function(_, var, key, tbl, typ, label, default)
+      reg[key] = { var = var, tbl = tbl, type = typ, label = label, default = default }
+      local s = {}
+      s.SetValueChangedCallback = function(_, fn) callbacks[key] = fn end
+      return s
+    end,
+    CreateCheckbox = function() checks = checks + 1 end,
+    CreateDropdown = function(_, _, options) drops[#drops + 1] = options end,
+    CreateControlTextContainer = function()
+      local t = { data = {} }
+      t.Add = function(_, v, text) t.data[#t.data + 1] = { value = v, text = text } end
+      t.GetData = function() return t.data end
+      return t
+    end,
+    OpenToCategory = function(id) openedID = id end,
+  }
+  _G.SettingsPanel = { GetLayout = function() return {
+    AddInitializer = function(_, init) headers[#headers + 1] = init end,
+  } end }
+  _G.CreateSettingsListSectionHeaderInitializer = function(text) return text end
+  local pns = { db = {} }
+  assert(loadfile("config.lua"))("VocWarbank", pns)
+  pns.config.init()
+  local inits, panelRescans = 0, 0
+  pns.providers = { init = function() inits = inits + 1 end }
+  pns.ui = { isOpen = function() return true end, rescan = function() panelRescans = panelRescans + 1 end }
+  assert(loadfile("settings.lua"))("VocWarbank", pns)
+  pns.settings.init()
+  for _, key in ipairs({ "priceSource", "inventorySource", "scope", "ahThreshold",
+      "autoOpenVendor", "autoOpenAuction" }) do
+    check("panel registers " .. key, reg[key] ~= nil and reg[key].var == "VocWarbank_" .. key)
+    check("panel binds " .. key .. " to the live table", reg[key] and reg[key].tbl == pns.db)
+    check("panel default for " .. key .. " matches config",
+      reg[key] and reg[key].default == pns.config.default(key)
+      and reg[key].type == type(pns.config.default(key)))
+  end
+  check("four dropdowns, two checkboxes", #drops == 4 and checks == 2)
+  check("slash-line note added", headers[1] == "More on the slash line: /vw help")
+  local scopeData = drops[3]()
+  check("scope dropdown lists all four", #scopeData == 4 and scopeData[1].value == "bags")
+  local th = drops[4]()
+  check("threshold presets only by default", #th == #pns.settings.thresholdGold
+    and th[3].value == 100000 and th[3].text == "10g")
+  pns.db.ahThreshold = 123450 -- /vw threshold 12.345
+  th = drops[4]()
+  local custom
+  for i, opt in ipairs(th) do
+    if opt.value == 123450 then custom = opt end
+    if i > 1 then check("threshold list stays sorted", th[i - 1].value < opt.value) end
+  end
+  check("custom threshold joins the list", custom ~= nil and custom.text == "12.35g (custom)")
+  callbacks.priceSource()
+  check("price source change re-inits providers and rescans", inits == 1 and panelRescans == 1)
+  callbacks.scope()
+  check("scope change rescans", panelRescans == 2)
+  pns.settings.open()
+  check("open goes to the category", openedID == 7)
+  pns.settings.init()
+  check("init is idempotent", #drops == 4)
+  _G.Settings, _G.SettingsPanel, _G.CreateSettingsListSectionHeaderInitializer = nil, nil, nil
+end
+
+-- settings.lua without the Settings API: no-op init, open says where
+do
+  local nns = { db = {} }
+  assert(loadfile("config.lua"))("VocWarbank", nns)
+  nns.config.init()
+  local said
+  nns.say = function(line) said = line end
+  assert(loadfile("settings.lua"))("VocWarbank", nns)
+  nns.settings.init()
+  nns.settings.open()
+  check("open without Settings prints the path", said == "open Settings > AddOns > VocWarbank")
+end
 
 print(string.format("%d passed, %d failed", pass, fail))
 os.exit(fail > 0 and 1 or 0)
