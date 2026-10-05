@@ -169,16 +169,33 @@ theme` reports the live look, the EUI toggles, and any skin error.
 
 ## Settings
 
-Settings are account-wide, edited in the addon panel (`/vw config`)
-or on the slash line.
+Settings are account-wide. The panel is a native Blizzard Settings
+category (Settings > AddOns > VocWarbank, or `/vw config`), the same
+shape as every Voc addon (see FAMILY.md); every option also has a
+slash form, and both apply live to an open window.
 
-- Price source: Auto / Vendor / Auctionator / TSM / Oribos Exchange.
+Panel (dropdowns and checkboxes bound to the live SavedVariables):
+
+- Price source: Auto / Auctionator / TSM / Oribos Exchange / Vendor.
 - Warbank source: Auto / Syndicator / Blizzard API.
-- TSM price key (default DBMarket), enchanter name, auction threshold.
-- Never/always-sell lists via /vw never|always <item>.
+- Scope: Bags / Character bank / Warband bank / All three.
+- Auction threshold: gold presets (1 to 5000); a slash-set value that
+  is not a preset shows as "(custom)".
 - Auto-open at vendors / the auction house (both off by default).
   The window docks beside the merchant or AH frame when it auto-opens.
   Vendor auto-open pre-selects the vendor filter.
+
+Slash line only (free text, no native control): enchanter name
+(`/vw enchanter`), TSM price key (`/vw tsmkey`, default DBMarket),
+never/always-sell lists (`/vw never|always|unnever|unalways <item>`).
+The panel ends with a pointer to `/vw help`.
+
+## Slash
+
+`/vw` and `/vocwarbank`. The bare command opens or closes the window;
+`/vw help` lists every subcommand; anything unrecognized prints help
+and never acts. Chat lines carry the family's colored `VocWarbank:`
+prefix via `ns.say`.
 
 ## Build notes
 
@@ -188,6 +205,8 @@ or on the slash line.
 - SavedVariables are account-wide.
 - MIT license. Public repo under vocino.
 - Looks follow theme.lua (see Looks); suites are never hard-required.
+- Conventions shared with the other Voc addons live in FAMILY.md.
+- `lua tests/run.lua` and `luacheck .` run in CI on every push.
 
 ## Open questions
 
