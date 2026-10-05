@@ -1,4 +1,4 @@
-local name, ns = ...
+local _, ns = ...
 local theme = {}
 ns.theme = theme
 
@@ -61,7 +61,7 @@ local function euiCall(fn)
   skinError = skinError or { style = "ellesmere", err = tostring(err) }
   if not errorPrinted.ellesmere then
     errorPrinted.ellesmere = true
-    print("VocWarbank: the ellesmere look failed (" .. tostring(err) .. "); using stock. See /vw theme.")
+    ns.say("the ellesmere look failed (" .. tostring(err) .. "); using stock. See /vw theme.")
   end
   return false
 end
@@ -400,7 +400,7 @@ local function apply(style)
     current = "default"
     if not errorPrinted[style] then
       errorPrinted[style] = true
-      print("VocWarbank: the " .. style .. " look failed (" .. tostring(err) .. "); using stock. See /vw theme.")
+      ns.say("the " .. style .. " look failed (" .. tostring(err) .. "); using stock. See /vw theme.")
     end
   end
   if refs.repaint then refs.repaint() end

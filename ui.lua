@@ -1,4 +1,4 @@
-local name, ns = ...
+local _, ns = ...
 local ui = {}
 ns.ui = ui
 
@@ -143,10 +143,8 @@ function ui.sortEntries(entries, mode, reverse)
       if va ~= vb then return va > vb end
       local qa, qb = quality(a), quality(b)
       if qa ~= qb then return qa > qb end
-    elseif mode == "name" then
-      -- falls to the name compare below
-    else
-      return pos[a] < pos[b]
+    elseif mode ~= "name" then
+      return pos[a] < pos[b] -- "off": bag order; "name" falls through
     end
     if names[a] ~= names[b] then return names[a] < names[b] end
     return pos[a] < pos[b]
@@ -619,10 +617,10 @@ function ui.useQueued(list)
     end
   end
   if equippable > 0 then
-    print("VocWarbank: skipped " .. equippable .. " equippable items (using would bind them).")
+    ns.say("skipped " .. equippable .. " equippable items (using would bind them).")
   end
   if skipped > 0 then
-    print("VocWarbank: skipped " .. skipped .. " items outside bags (not supported yet).")
+    ns.say("skipped " .. skipped .. " items outside bags (not supported yet).")
   end
   ui.rescan(true)
   return n
@@ -642,7 +640,7 @@ function ui.vendorQueued(list)
     end
   end
   if skipped > 0 then
-    print("VocWarbank: skipped " .. skipped .. " items outside bags (not supported yet).")
+    ns.say("skipped " .. skipped .. " items outside bags (not supported yet).")
   end
   ui.rescan(true)
   return n
@@ -687,7 +685,7 @@ local function mailToEnchanter(who, items)
     end
   end
   ui.rescan(true)
-  print("VocWarbank: mailed " .. sent .. " items to " .. who
+  ns.say("mailed " .. sent .. " items to " .. who
     .. (skipped > 0 and " (skipped " .. skipped .. " unmailable)" or "") .. ".")
   return sent
 end
@@ -697,7 +695,7 @@ function ui.disenchantQueued(list)
   if #list == 0 then return 0 end
   local who = ns.config.get("enchanter")
   if not who or who == "" then
-    print("VocWarbank: " .. #list .. " items to disenchant — set your enchanter with"
+    ns.say("" .. #list .. " items to disenchant — set your enchanter with"
       .. " /vw enchanter <name>, or disenchant them directly.")
     for _, entry in ipairs(list) do print("  " .. ui.linkName(entry.item.link)) end
     return #list
@@ -710,11 +708,11 @@ function ui.disenchantQueued(list)
     end
   end
   if #mailable == 0 then
-    print("VocWarbank: nothing mailable — the disenchant queue is all bank/warbank items.")
+    ns.say("nothing mailable — the disenchant queue is all bank/warbank items.")
     return 0
   end
   if not atMailbox() then
-    print("VocWarbank: " .. #mailable .. " items ready for " .. who
+    ns.say("" .. #mailable .. " items ready for " .. who
       .. " — open a mailbox to send them.")
     return #mailable
   end
@@ -729,10 +727,10 @@ function ui.sellQueued(list)
   if C_AddOns.IsAddOnLoaded("TradeSkillMaster") then helper = "TSM"
   elseif C_AddOns.IsAddOnLoaded("Auctionator") then helper = "Auctionator" end
   if helper then
-    print("VocWarbank: " .. #list .. " items ready — list them in " .. helper
+    ns.say("" .. #list .. " items ready — list them in " .. helper
       .. ". (Automatic handoff coming in a later version.)")
   else
-    print("VocWarbank: " .. #list .. " items flagged for manual listing (no auction addon found).")
+    ns.say("" .. #list .. " items flagged for manual listing (no auction addon found).")
   end
   for _, entry in ipairs(list) do print("  " .. ui.linkName(entry.item.link)) end
   return #list
@@ -759,12 +757,12 @@ function ui.destroyQueued(list)
   end
   ui.rescan(true)
   if pending then
-    print("VocWarbank: paused for Blizzard's confirmation — click Trash again to continue"
+    ns.say("paused for Blizzard's confirmation — click Trash again to continue"
       .. " (put the item back first if you cancelled).")
   elseif skipped > 0 then
-    print("VocWarbank: destroyed " .. n .. ", skipped " .. skipped .. " outside bags.")
+    ns.say("destroyed " .. n .. ", skipped " .. skipped .. " outside bags.")
   else
-    print("VocWarbank: destroyed " .. n .. " items.")
+    ns.say("destroyed " .. n .. " items.")
   end
   return n
 end
@@ -897,7 +895,6 @@ function ui.init()
   headerSource = window:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   headerSource:SetPoint("TOPRIGHT", window, "TOPRIGHT", -44, -30)
   local modes = { "category", "expansion" }
-  local labels = { "Category", "Expansion" }
   for i = 1, 2 do
     local b = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
     b:SetSize(i == 1 and 78 or 82, 20)
