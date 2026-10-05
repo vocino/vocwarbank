@@ -52,6 +52,20 @@ local skinError = nil
 local errorPrinted = {}
 local euiLegacyStrip -- forward: applyEllesmere runs before its definition
 
+-- EUI facade calls outside apply() (fresh widgets arriving mid-session,
+-- per-paint refreshes) degrade to stock on failure instead of breaking
+-- the render. Loud once, like the apply() fallback.
+local function euiCall(fn)
+  local ok, err = pcall(fn)
+  if ok then return true end
+  skinError = skinError or { style = "ellesmere", err = tostring(err) }
+  if not errorPrinted.ellesmere then
+    errorPrinted.ellesmere = true
+    print("VocWarbank: the ellesmere look failed (" .. tostring(err) .. "); using stock. See /vw theme.")
+  end
+  return false
+end
+
 function theme.current() return current end
 
 function theme.init(r)
@@ -224,19 +238,22 @@ end
 
 function theme.styleIcon(r)
   if current == "ellesmere" and eui then
-    if not r.button.IconBorder then
-      -- Follow-mode reads quality back off the button's ring (shown,
-      -- vertex-colored; the packs alpha theirs to 0 the same way).
-      -- Our buttons have no Blizzard ring, so we carry the color on
-      -- a hidden texture of our own under the exact field name.
-      local ring = r.button:CreateTexture(nil, "OVERLAY")
-      ring:SetAlpha(0)
-      r.button.IconBorder = ring
-    end
-    eui.Button(r.button, { "Icon", "Sel", "Dot", "IconBorder" })
-    eui.SquareIcon(r.icon, r.button, true)
-    eui.Font(r.count)
-    eui.Font(r.level)
+    local S = eui
+    euiCall(function()
+      if not r.button.IconBorder then
+        -- Follow-mode reads quality back off the button's ring (shown,
+        -- vertex-colored; the packs alpha theirs to 0 the same way).
+        -- Our buttons have no Blizzard ring, so we carry the color on
+        -- a hidden texture of our own under the exact field name.
+        local ring = r.button:CreateTexture(nil, "OVERLAY")
+        ring:SetAlpha(0)
+        r.button.IconBorder = ring
+      end
+      S.Button(r.button, { "Icon", "Sel", "Dot", "IconBorder" })
+      S.SquareIcon(r.icon, r.button, true)
+      S.Font(r.count)
+      S.Font(r.level)
+    end)
   -- Square icons are opt-in upstream (skins.dark.square_icons, off by
   -- default). paintIcon owns the per-paint truth; this is just early.
   elseif current == "baganator" and baganatorDarkOpt("square_icons", false) then
@@ -246,8 +263,11 @@ end
 
 function theme.styleHeader(r)
   if current == "ellesmere" and eui then
-    eui.Font(r.label)
-    eui.White(r.label)
+    local S, label = eui, r.label
+    euiCall(function()
+      S.Font(label)
+      S.White(label)
+    end)
   end
   -- Other looks keep the creation font (GameFontNormalMed2): upstream
   -- sets it in view code, independent of the active skin.
@@ -258,18 +278,22 @@ end
 -- stock falls back to the quality plate.
 function theme.paintIcon(r, quality, qcolor)
   if current == "ellesmere" and eui then
-    local c = (ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality])
-      or { r = qcolor[1], g = qcolor[2], b = qcolor[3] }
-    local ring = r.button.IconBorder
-    if ring then
-      ring:SetVertexColor(c.r, c.g, c.b, 1)
-      ring:Show()
-    end
-    -- The rarity border carries quality now; the plate stands down.
-    r.bg:Hide()
-    if r.bgrBorder then r.bgrBorder:Hide() end
-    eui.SquareIcon(r.icon, r.button, true)
-    return
+    local S = eui
+    local painted = euiCall(function()
+      local c = (ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality])
+        or { r = qcolor[1], g = qcolor[2], b = qcolor[3] }
+      local ring = r.button.IconBorder
+      if ring then
+        ring:SetVertexColor(c.r, c.g, c.b, 1)
+        ring:Show()
+      end
+      -- The rarity border carries quality now; the plate stands down.
+      r.bg:Hide()
+      if r.bgrBorder then r.bgrBorder:Hide() end
+      S.SquareIcon(r.icon, r.button, true)
+    end)
+    if painted then return end
+    -- A failed EUI paint falls through to the stock plate below.
   end
   -- Upstream crops and re-borders icons only when the user opts into
   -- square icons (off by default); otherwise icons keep the Blizzard

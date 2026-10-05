@@ -327,7 +327,13 @@ local function buildIcon(f)
     local entry = r.entry
     if not entry then return end
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetHyperlink(entry.item.link)
+    -- Syndicator slots can carry an itemID with no link; SetHyperlink
+    -- errors on nil, so fall back to a plain label.
+    if entry.item.link then
+      GameTooltip:SetHyperlink(entry.item.link)
+    else
+      GameTooltip:SetText("Item " .. tostring(entry.item.itemID or "?"))
+    end
     GameTooltip:AddLine(verdictLabel(entry.verdict) .. " — " .. (entry.reason or ""), 1, 1, 1)
     if entry.value then
       GameTooltip:AddLine("Value: " .. ui.formatGold(entry.value), 1, 1, 1)

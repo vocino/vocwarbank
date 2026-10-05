@@ -24,6 +24,7 @@ end
 
 local priceSources = { auto = true, vendor = true, auctionator = true, tsm = true, oribos = true }
 local inventorySources = { auto = true, blizzard = true, syndicator = true }
+local scopeValues = { warbank = true, bank = true, bags = true, all = true }
 
 -- Settings changed under an open window apply immediately.
 local function refresh()
@@ -65,19 +66,19 @@ SlashCmdList.VOCWARBANK = function(msg)
     if not s.euiMaster then print("VocWarbank: EUI third-party skins are OFF (master toggle).") end
     if not s.euiAddon then print("VocWarbank: EUI skin for VocWarbank is OFF (per-addon toggle).") end
     if s.error then print("VocWarbank: last skin error [" .. s.error.style .. "]: " .. s.error.err) end
-  elseif cmd == "source" and priceSources[rest] then
-    ns.config.set("priceSource", rest)
+  elseif cmd == "source" and priceSources[rest:lower()] then
+    ns.config.set("priceSource", rest:lower())
     ns.providers.init()
     refresh()
-    print("VocWarbank: price source set to " .. rest .. ".")
-  elseif cmd == "inventory" and inventorySources[rest] then
-    ns.config.set("inventorySource", rest)
+    print("VocWarbank: price source set to " .. rest:lower() .. ".")
+  elseif cmd == "inventory" and inventorySources[rest:lower()] then
+    ns.config.set("inventorySource", rest:lower())
     refresh()
-    print("VocWarbank: warbank source set to " .. rest .. ".")
-  elseif cmd == "scope" and (rest == "warbank" or rest == "bank" or rest == "bags" or rest == "all") then
-    ns.config.set("scope", rest)
+    print("VocWarbank: warbank source set to " .. rest:lower() .. ".")
+  elseif cmd == "scope" and scopeValues[rest:lower()] then
+    ns.config.set("scope", rest:lower())
     refresh()
-    print("VocWarbank: scope set to " .. rest .. ".")
+    print("VocWarbank: scope set to " .. rest:lower() .. ".")
   elseif cmd == "threshold" and tonumber(rest) and tonumber(rest) > 0 then
     ns.config.set("ahThreshold", math.floor(tonumber(rest) * 10000))
     refresh()
