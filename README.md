@@ -4,7 +4,7 @@ Every expansion leaves junk in your warbank: old reagents, dead
 quest items, gear with no purpose. VocWarbank scans your warband
 bank, bank, or bags, ranks everything by usefulness, and lets you
 draw the line. Everything below it gets vendored, disenchanted,
-mailed, or trashed. You confirm every action; it never sells or
+mailed, or destroyed. You confirm every action; it never sells or
 destroys anything on its own.
 
 ## Install
@@ -18,10 +18,15 @@ make sure it is named `VocWarbank` (the folder name must match the
 ## Use
 
 Open the window, pick a scope, and browse the icon grid grouped by
-category or expansion. Filter by verdict, click to queue what goes,
-review the dry-run summary, hit go. Uncollected appearances and
-equipment sets stay, current-expansion mats stay, everything else
-gets a verdict: use, sell, disenchant, vendor, trash, or destroy.
+category or expansion. The sidebar narrows (search, verdict facets
+with counts), the grid selects (click icons, shift-click headers),
+and the action stack acts: Use, Sell, Disenchant, Vendor, Destroy,
+each showing how many are queued, with a dry-run summary under the
+grid. Uncollected appearances and equipment sets stay,
+current-expansion mats stay, everything else gets a verdict: use,
+sell, disenchant, vendor, or destroy. On an enchanter the Disenchant
+button casts in person, one item per click; otherwise it mails the
+queue to the enchanter you name.
 
 ```
 /vw                                 open or close the window

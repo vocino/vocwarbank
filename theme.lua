@@ -47,6 +47,14 @@ function theme.init(r)
   refs = refs or {}
   for k, v in pairs(r) do refs[k] = v end
   refs.buttons = refs.buttons or {}
+  refs.dropdowns = refs.dropdowns or {}
+end
+
+local function ensureRefs()
+  refs = refs or {} -- widgets announce before init hands over refs
+  refs.buttons = refs.buttons or {}
+  refs.dropdowns = refs.dropdowns or {}
+  return refs
 end
 
 -- Guarded read of the user's Baganator skin key. Profiles live in
@@ -108,6 +116,23 @@ local function hideRegions(frame)
   end
 end
 
+-- Resting colors for a Dark-look button: black fill, dimmer when
+-- disabled, a gold tint while the button is held "pressed" (the active
+-- Group-by mode, the reversed sort direction).
+local function bgrRest(b)
+  if not b.SetBackdropColor then return end
+  if not b:IsEnabled() then
+    b:SetBackdropColor(0, 0, 0, 0.1)
+    b:SetBackdropBorderColor(0, 0, 0, 1)
+  elseif b.vwPressed then
+    b:SetBackdropColor(1, 0.82, 0, 0.18)
+    b:SetBackdropBorderColor(1, 0.82, 0, 1)
+  else
+    b:SetBackdropColor(0, 0, 0, 0.5)
+    b:SetBackdropBorderColor(0, 0, 0, 1)
+  end
+end
+
 -- Baganator Dark: StyleButton from Skins/Dark.lua, nil-safe for our
 -- bare buttons. Colors are precomputed (Lighten of achromatic grays).
 local function bgrStyleButton(b)
@@ -116,8 +141,7 @@ local function bgrStyleButton(b)
     for _, key in ipairs({ "Left", "Middle", "Right" }) do
       if b[key] and b[key].Hide then b[key]:Hide() end
     end
-    b:SetBackdropColor(0, 0, 0, b:IsEnabled() and 0.5 or 0.1)
-    b:SetBackdropBorderColor(0, 0, 0, 1)
+    bgrRest(b)
     return
   end
   b.bgrStyled = true
@@ -129,8 +153,7 @@ local function bgrStyleButton(b)
   if not b.SetBackdrop then return end
   b:SetBackdrop({ bgFile = BGR_BG, edgeFile = BGR_EDGE,
     tile = true, tileEdge = true, tileSize = 32, edgeSize = 6 })
-  b:SetBackdropColor(0, 0, 0, 0.5)
-  b:SetBackdropBorderColor(0, 0, 0, 1)
+  bgrRest(b)
   b:HookScript("OnEnter", function()
     if b:IsEnabled() then
       b:SetBackdropColor(0.3, 0.3, 0.3, 0.8)
@@ -149,12 +172,9 @@ local function bgrStyleButton(b)
       b:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
     end
   end)
-  b:HookScript("OnLeave", function()
-    b:SetBackdropColor(0, 0, 0, 0.5)
-    b:SetBackdropBorderColor(0, 0, 0, 1)
-  end)
-  b:HookScript("OnDisable", function() b:SetBackdropColor(0, 0, 0, 0.1) end)
-  b:HookScript("OnEnable", function() b:SetBackdropColor(0, 0, 0, 0.5) end)
+  b:HookScript("OnLeave", function() bgrRest(b) end)
+  b:HookScript("OnDisable", function() bgrRest(b) end)
+  b:HookScript("OnEnable", function() bgrRest(b) end)
 end
 
 local function bgrUnstyleButton(b)
@@ -166,6 +186,52 @@ local function bgrUnstyleButton(b)
   end
   for _, key in ipairs({ "Left", "Middle", "Right" }) do
     if b[key] and b[key].Show then b[key]:Show() end
+  end
+end
+
+-- Stock pressed look: the same texture swap UIPanelButton_OnMouseDown
+-- does (SecureUIPanelTemplates.lua), held while vwPressed. The
+-- template resets its art on mouse-up, show, and enable, so those are
+-- hooked to re-apply. Under Dark the backdrop tint carries it instead.
+local PANEL_UP = "Interface\\Buttons\\UI-Panel-Button-Up"
+local PANEL_DOWN = "Interface\\Buttons\\UI-Panel-Button-Down"
+
+local function paintPressed(b)
+  if current == "baganator" and b.bgrStyled then
+    bgrRest(b)
+    return
+  end
+  if not (b.Left and b.Middle and b.Right and b:IsEnabled()) then return end
+  local tex = b.vwPressed and PANEL_DOWN or PANEL_UP
+  b.Left:SetTexture(tex)
+  b.Middle:SetTexture(tex)
+  b.Right:SetTexture(tex)
+end
+
+-- Dark look for the sort dropdown (WowStyle1DropdownTemplate): the
+-- stock text-holder art goes, the button backdrop recipe takes over,
+-- arrow and text stay. Approximates upstream, which skins its own
+-- dropdowns the same way.
+local function bgrStyleDropdown(d)
+  if d.Background and d.Background.SetAlpha then d.Background:SetAlpha(0) end
+  bgrStyleButton(d)
+end
+
+local function bgrUnstyleDropdown(d)
+  if d.Background and d.Background.SetAlpha then d.Background:SetAlpha(1) end
+  bgrUnstyleButton(d)
+end
+
+-- Sidebar tint and divider per look (mock: #vw-side).
+local function paintSidebar()
+  local s = refs and refs.sidebar
+  if not s then return end
+  if current == "baganator" then
+    s.bg:SetColorTexture(0, 0, 0, 0.35)
+    s.divider:SetColorTexture(0.165, 0.165, 0.165, 1)
+  else
+    s.bg:SetColorTexture(0, 0, 0, 0.25)
+    s.divider:SetColorTexture(0.06, 0.07, 0.09, 1)
   end
 end
 
@@ -201,11 +267,36 @@ end
 -- skipDark leaves a button stock under the Dark look (upstream routes
 -- tabs through a no-op skinner).
 function theme.styleButton(b, skipDark)
-  refs = refs or { buttons = {} } -- widgets announce before init hands over refs
+  ensureRefs()
   refs.buttons[#refs.buttons + 1] = { b = b, skipDark = skipDark }
+  if not b.vwPressHooked and b.HookScript then
+    b.vwPressHooked = true
+    for _, script in ipairs({ "OnMouseUp", "OnShow", "OnEnable" }) do
+      b:HookScript(script, function(self) paintPressed(self) end)
+    end
+  end
   if current == "baganator" and not skipDark then
     bgrStyleButton(b)
   end
+end
+
+-- Hold a button in its pressed look (toggle state), or release it.
+function theme.setPressed(b, on)
+  b.vwPressed = on and true or false
+  paintPressed(b)
+end
+
+function theme.styleDropdown(d)
+  ensureRefs()
+  refs.dropdowns[#refs.dropdowns + 1] = d
+  if current == "baganator" then bgrStyleDropdown(d) end
+end
+
+-- The sidebar panel: { bg = Texture, divider = Texture }.
+function theme.styleSidebar(side)
+  ensureRefs()
+  refs.sidebar = side
+  paintSidebar()
 end
 
 function theme.styleIcon(r)
@@ -252,12 +343,14 @@ local function applyBaganator()
   for _, rec in ipairs(refs.buttons) do
     if not rec.skipDark then bgrStyleButton(rec.b) end
   end
+  for _, d in ipairs(refs.dropdowns) do bgrStyleDropdown(d) end
   for _b in refs.iconPool:EnumerateActive() do theme.styleIcon(_b._rec) end
 end
 
 local function clearBaganator()
   clearBaganatorWindow(refs.window)
   for _, rec in ipairs(refs.buttons) do bgrUnstyleButton(rec.b) end
+  for _, d in ipairs(refs.dropdowns) do bgrUnstyleDropdown(d) end
 end
 
 local function apply(style)
@@ -281,6 +374,9 @@ local function apply(style)
       ns.say("the " .. style .. " look failed (" .. tostring(err) .. "); using stock. See /vw theme.")
     end
   end
+  -- Look-independent state re-dressed for the new look.
+  for _, rec in ipairs(refs.buttons) do paintPressed(rec.b) end
+  paintSidebar()
   if refs.repaint then refs.repaint() end
 end
 
