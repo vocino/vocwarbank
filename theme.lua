@@ -48,12 +48,15 @@ function theme.init(r)
   for k, v in pairs(r) do refs[k] = v end
   refs.buttons = refs.buttons or {}
   refs.dropdowns = refs.dropdowns or {}
+  refs.windows = refs.windows or {}
+  if r.window then refs.windows[#refs.windows + 1] = r.window end
 end
 
 local function ensureRefs()
   refs = refs or {} -- widgets announce before init hands over refs
   refs.buttons = refs.buttons or {}
   refs.dropdowns = refs.dropdowns or {}
+  refs.windows = refs.windows or {}
   return refs
 end
 
@@ -292,6 +295,13 @@ function theme.styleDropdown(d)
   if current == "baganator" then bgrStyleDropdown(d) end
 end
 
+-- Extra top-level frames (the handoff dialog) that dress with the look.
+function theme.styleWindow(frame)
+  ensureRefs()
+  refs.windows[#refs.windows + 1] = frame
+  if current == "baganator" then applyBaganatorWindow(frame) end
+end
+
 -- The sidebar panel: { bg = Texture, divider = Texture }.
 function theme.styleSidebar(side)
   ensureRefs()
@@ -338,8 +348,16 @@ function theme.paintIcon(r, quality, qcolor)
   end
 end
 
+-- Queued ring (DESIGN 10). Queue state is data, not chrome, so the
+-- gold inner edge is identical in every look; only the on/off lives
+-- here so look changes re-dress it with everything else.
+function theme.paintQueued(r, action)
+  if not r.qr then return end
+  if action then r.qr:Show() else r.qr:Hide() end
+end
+
 local function applyBaganator()
-  applyBaganatorWindow(refs.window)
+  for _, w in ipairs(refs.windows or {}) do applyBaganatorWindow(w) end
   for _, rec in ipairs(refs.buttons) do
     if not rec.skipDark then bgrStyleButton(rec.b) end
   end
@@ -348,7 +366,7 @@ local function applyBaganator()
 end
 
 local function clearBaganator()
-  clearBaganatorWindow(refs.window)
+  for _, w in ipairs(refs.windows or {}) do clearBaganatorWindow(w) end
   for _, rec in ipairs(refs.buttons) do bgrUnstyleButton(rec.b) end
   for _, d in ipairs(refs.dropdowns) do bgrUnstyleDropdown(d) end
 end
@@ -387,8 +405,8 @@ function theme.decide()
     apply("baganator")
     -- Options are live: refresh the dressing on every scan even when
     -- the look itself didn't change. Icons repaint in render().
-    if current == "baganator" and refs.window then
-      applyBaganatorWindow(refs.window)
+    if current == "baganator" then
+      for _, w in ipairs(refs.windows or {}) do applyBaganatorWindow(w) end
     end
   else apply("default") end
 end

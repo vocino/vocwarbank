@@ -16,6 +16,7 @@ local defaults = {
   sortMode = "off",          -- off | quality | value | name
   sortReverse = false,       -- flip the sort comparator
   collapsedGroups = {},      -- section key -> true
+  queue = {},                -- action -> itemID -> { link, n, scope }
 }
 
 local enums = {
@@ -58,8 +59,22 @@ function config.init()
   for k, allowed in pairs(enums) do
     if not allowed[d[k]] then d[k] = defaults[k] end
   end
-  for _, k in ipairs({ "neverSell", "alwaysSell", "collapsedGroups" }) do
+  for _, k in ipairs({ "neverSell", "alwaysSell", "collapsedGroups", "queue" }) do
     if type(d[k]) ~= "table" then d[k] = {} end
+  end
+  -- Queue rows must be well-formed (hand edits, older shapes); ragged
+  -- actions and rows drop, valid ones stay.
+  for action, rows in pairs(d.queue) do
+    if type(rows) ~= "table" then
+      d.queue[action] = nil
+    else
+      for id, row in pairs(rows) do
+        if type(row) ~= "table" or type(row.n) ~= "number" or row.n <= 0 then
+          rows[id] = nil
+        end
+      end
+      if next(rows) == nil then d.queue[action] = nil end
+    end
   end
   if type(d.ahThreshold) ~= "number" or d.ahThreshold <= 0 then
     d.ahThreshold = defaults.ahThreshold

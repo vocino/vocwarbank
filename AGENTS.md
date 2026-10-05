@@ -8,7 +8,9 @@
 - `scanner.lua`: container-agnostic scan (warbank, bank, bags)
 - `ranking.lua`: the verdict rules
 - `theme.lua`: Baganator Dark / stock looks
+- `queue.lua`: persisted action queues, re-resolved at handoff
 - `ui.lua`: the triage window
+- `handoff.lua`: the merchant handoff dialog
 - `mock/triage.html`: the HTML design mock the window follows (dev only, never packaged)
 - `settings.lua`: native Settings panel (Settings > AddOns > VocWarbank)
 - `tests/`: headless tests (`lua tests/run.lua` from the repo root)
