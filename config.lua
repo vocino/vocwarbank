@@ -1,4 +1,4 @@
-local name, ns = ...
+local _, ns = ...
 local config = {}
 ns.config = config
 
@@ -76,6 +76,10 @@ function config.get(k)
   if v == nil then return defaults[k] end
   return v
 end
+
+-- The default for a key (a copy, for tables). The Settings panel
+-- reads it so defaults are declared exactly once.
+function config.default(k) return fresh(defaults[k]) end
 
 function config.set(k, v) db()[k] = v end
 
