@@ -13,7 +13,8 @@ ns.scanner = scanner
 
 local function scanBags(out)
   for bag = 0, 5 do
-    for slot = 1, C_Container.GetContainerNumSlots(bag) do
+    local ok, numSlots = pcall(C_Container.GetContainerNumSlots, bag)
+    for slot = 1, (ok and numSlots or 0) do
       local link = C_Container.GetContainerItemLink(bag, slot)
       if link then
         local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -46,9 +47,14 @@ local function scanBank(out)
     add(bagIndex.Reagentbank)
     add(bagIndex.ReagentBank)
   end
-  -- legacy numeric IDs, stable across clients
+  -- Numeric fallbacks. The reagent bag (5) shifted bank bags to 6-12
+  -- on modern clients; Enum-less clients still number them 5-11.
   add(-1) -- BANK_CONTAINER
-  for i = 5, 11 do add(i) end -- bank bags
+  if bagIndex then
+    for i = 6, 12 do add(i) end -- bank bags, modern numbering
+  else
+    for i = 5, 11 do add(i) end -- bank bags, legacy numbering
+  end
   add(-3) -- REAGENTBANK_CONTAINER
   for _, bagID in ipairs(ids) do
     local ok, numSlots = pcall(C_Container.GetContainerNumSlots, bagID)
