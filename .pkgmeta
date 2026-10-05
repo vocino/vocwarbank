@@ -2,7 +2,9 @@ package-as: VocWarbank
 
 ignore:
   - .github
-  - SPEC.md
-  - AGENTS.md
+  - .luacheckrc
   - tests
+  - AGENTS.md
+  - FAMILY.md
+  - SPEC.md
   - VERSIONING.md
