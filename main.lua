@@ -41,6 +41,8 @@ ns.HELP = {
   "/vw tsmkey <key>                    TSM price key (default DBMarket)",
   "/vw never|unnever <item>            pin or unpin a never-sell item",
   "/vw always|unalways <item>          pin or unpin an always-sell item",
+  "/vw queue                           list queued handoff items",
+  "/vw queue clear [action]            drop queued items",
   "/vw auto <vendor|auction> <on|off>  auto-open at vendors or the AH",
   "/vw theme                           report the active look",
   "/vw config                          open Settings > AddOns > VocWarbank",
@@ -60,6 +62,9 @@ local scopeValues = { warbank = true, bank = true, bags = true, all = true }
 local function refresh()
   if ns.ui and ns.ui.isOpen and ns.ui.isOpen() and ns.ui.rescan then
     ns.ui.rescan(true)
+  end
+  if ns.handoff and ns.handoff.onQueueChanged then
+    ns.handoff.onQueueChanged()
   end
 end
 
@@ -97,6 +102,34 @@ local function pin(which, rest, on)
     ns.say("item " .. id .. (on and " will always be kept." or " removed from never-sell."))
   else
     ns.say("item " .. id .. (on and " will always sell." or " removed from always-sell."))
+  end
+end
+
+-- Actions with a handoff queue (queue.lua). New actions extend this
+-- when they grow a queue-and-handoff flow.
+local queueActions = { vendor = true }
+
+local function queueCmd(rest)
+  if not ns.queue then ns.help() return end
+  local sub, arg = rest:match("^(%S*)%s*(.-)%s*$")
+  sub, arg = (sub or ""):lower(), (arg or ""):lower()
+  if sub == "" and arg == "" then
+    local actions = ns.queue.actions()
+    if #actions == 0 then ns.say("nothing queued.") return end
+    for _, action in ipairs(actions) do
+      ns.say(action .. " (" .. ns.queue.count(action) .. " queued):")
+      for _, row in ipairs(ns.queue.list(action)) do
+        local name = (ns.ui and ns.ui.linkName and ns.ui.linkName(row.link))
+          or ("item:" .. tostring(row.id))
+        print("  " .. name .. (row.n > 1 and (" ×" .. row.n) or ""))
+      end
+    end
+  elseif sub == "clear" and (arg == "" or queueActions[arg]) then
+    ns.queue.clear(arg == "" and nil or arg)
+    refresh()
+    ns.say(arg == "" and "queue cleared." or (arg .. " queue cleared."))
+  else
+    ns.say("usage: /vw queue [clear [action]]")
   end
 end
 
@@ -144,6 +177,8 @@ SlashCmdList.VOCWARBANK = function(msg)
     pin("neverSell", rest, cmd == "never")
   elseif cmd == "always" or cmd == "unalways" then
     pin("alwaysSell", rest, cmd == "always")
+  elseif cmd == "queue" then
+    queueCmd(rest)
   else
     ns.help()
   end

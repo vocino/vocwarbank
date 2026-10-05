@@ -23,7 +23,7 @@ function mock.reset()
   mock.bags = {}             -- bagID -> { [slot] = { link, count, ... } }
   mock.expansionLevel = 11   -- midnight
   mock.cfg = {
-    neverSell = {}, alwaysSell = {},
+    neverSell = {}, alwaysSell = {}, queue = {},
     ahThreshold = 100000, inventorySource = "auto", enchanter = "",
   }
   mock.provider = {

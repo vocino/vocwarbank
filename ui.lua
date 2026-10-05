@@ -375,6 +375,14 @@ local function buildIcon(f)
   local bg = f:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints()
   bg:SetColorTexture(0.5, 0.5, 0.5, 1)
+  -- Queued ring (DESIGN 10): gold, inset 1, created before the icon so
+  -- it sits under it and reads as an inner edge on the quality plate.
+  -- theme.paintQueued owns the on/off.
+  local qr = f:CreateTexture(nil, "ARTWORK")
+  qr:SetPoint("TOPLEFT", f, "TOPLEFT", 1, -1)
+  qr:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
+  qr:SetColorTexture(1, 0.82, 0, 1)
+  qr:Hide()
   local icon = f:CreateTexture(nil, "ARTWORK")
   icon:SetPoint("TOPLEFT", f, "TOPLEFT", 2, -2)
   icon:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -2, 2)
@@ -386,7 +394,7 @@ local function buildIcon(f)
   local level = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   level:SetPoint("TOPLEFT", f, "TOPLEFT", 2, -1)
   local r = { button = f, sel = sel, bg = bg, icon = icon, dot = dot,
-    count = count, level = level, key = nil, entry = nil, searchName = "" }
+    count = count, level = level, key = nil, entry = nil, searchName = "", qr = qr }
   f._rec = r
   f:SetScript("OnClick", function() ui.toggleKey(r.key) end)
   f:SetScript("OnEnter", function(self)
@@ -401,6 +409,10 @@ local function buildIcon(f)
       GameTooltip:SetText("Item " .. tostring(entry.item.itemID or "?"))
     end
     GameTooltip:AddLine(verdictLabel(entry.verdict) .. " — " .. (entry.reason or ""), 1, 1, 1)
+    local queuedAction = ns.queue and ns.queue.queuedAs(entry)
+    if queuedAction then
+      GameTooltip:AddLine("Queued: " .. verdictLabel(queuedAction), 1, 0.82, 0)
+    end
     if entry.value then
       GameTooltip:AddLine("Value: " .. ui.formatGold(entry.value), 1, 1, 1)
     end
@@ -532,6 +544,7 @@ local function paintIcon(r, entry)
     r.level:SetText(detail.level) r.level:Show()
   else r.level:Hide() end
   if selected[r.key] then r.sel:Show() else r.sel:Hide() end
+  ns.theme.paintQueued(r, ns.queue and ns.queue.queuedAs(entry))
   r.button:SetAlpha(ui.searchMatch(r.searchName, searchText) and 1 or 0.35)
 end
 
@@ -611,8 +624,14 @@ local function updateTexts()
   setButton(buttons.disenchant, label, #ready, ctxOK, tip)
   deNote:SetText(note or "")
   deNote:SetShown(note ~= nil)
-  setButton(buttons.vendor, "Vendor", g.vendor or 0, merchantOpen,
-    merchantOpen and "Sell the selected items at a merchant" or "Vendor needs an open merchant window")
+  -- Vendor queues (DESIGN 10): the count is the queued total, and the
+  -- button stays up whenever there is something to queue or queued.
+  local qVendor = ns.queue and ns.queue.count("vendor") or 0
+  local selVendor = g.vendor or 0
+  local vendorTip = "Queue the selected items for the vendor"
+    .. (qVendor > 0 and (" (" .. qVendor .. " queued)") or "")
+    .. " — click again to unqueue"
+  setButton(buttons.vendor, "Vendor", qVendor, selVendor > 0 or qVendor > 0, vendorTip)
   setButton(buttons.destroy, "Destroy", g.destroy or 0, true, "Destroy the selected items (with confirmation)")
   -- The Actions group frames itself around the live selection
   -- (DESIGN 8): narrow -> select -> act.
@@ -793,6 +812,30 @@ function ui.useQueued(list)
   end
   ui.rescan(true)
   return n
+end
+
+-- Queue the selected vendor-verdict items (DESIGN 10): toggled per
+-- itemID so clicking again unqueues, counts merging by item. Queued
+-- items sell from the merchant handoff, which pops at once when a
+-- merchant is already open.
+function ui.queueVendor()
+  local sel = selectedWhere(function(e) return e.verdict == "vendor" end)
+  if #sel == 0 then
+    if not ns.queue.empty("vendor") then
+      ns.say(ns.queue.count("vendor") .. " items queued for the vendor.")
+    end
+    return
+  end
+  local added, removed = ns.queue.toggle("vendor", sel)
+  if added > 0 and removed > 0 then
+    ns.say("queued " .. added .. ", unqueued " .. removed .. " items.")
+  elseif added > 0 then
+    ns.say("queued " .. added .. " items for the vendor.")
+  elseif removed > 0 then
+    ns.say("unqueued " .. removed .. " items.")
+  end
+  if merchantOpen and ns.handoff then ns.handoff.show("vendor") end
+  render(lastRanked)
 end
 
 function ui.vendorQueued(list)
@@ -1026,27 +1069,38 @@ end
 -- false; the window still opens.
 local AUTO_GAP, AUTO_MARGIN = 8, 20
 
-local function anchorBeside(frame)
-  if not (window and frame and frame.IsShown and frame:IsShown()) then return false end
+-- Dock `mover` top-aligned beside `target`, right side first unless
+-- preferLeft. Shared with the handoff dialog; the main window keeps its
+-- old call shape through anchorBeside below.
+function ui.dockBeside(mover, target, preferLeft)
+  if not (mover and target and target.IsShown and target:IsShown()) then return false end
   local screenW = UIParent and UIParent:GetWidth() or 1920
   local screenH = UIParent and UIParent:GetHeight() or 1080
-  local w, h = window:GetSize()
-  local left, right, top = frame:GetLeft(), frame:GetRight(), frame:GetTop()
+  local w, h = mover:GetSize()
+  local left, right, top = target:GetLeft(), target:GetRight(), target:GetTop()
   if not (w and h and left and right and top) then return false end
   local y = 0
   if top > screenH - AUTO_MARGIN then y = (screenH - AUTO_MARGIN) - top end
   if top + y - h < AUTO_MARGIN then y = AUTO_MARGIN + h - top end
-  local point, relPoint, x
-  if right + AUTO_GAP + w <= screenW then
-    point, relPoint, x = "TOPLEFT", "TOPRIGHT", AUTO_GAP
-  elseif left - AUTO_GAP - w >= 0 then
-    point, relPoint, x = "TOPRIGHT", "TOPLEFT", -AUTO_GAP
+  local sides
+  if preferLeft then
+    sides = { { "TOPRIGHT", "TOPLEFT", -AUTO_GAP }, { "TOPLEFT", "TOPRIGHT", AUTO_GAP } }
   else
-    return false
+    sides = { { "TOPLEFT", "TOPRIGHT", AUTO_GAP }, { "TOPRIGHT", "TOPLEFT", -AUTO_GAP } }
   end
-  window:ClearAllPoints()
-  window:SetPoint(point, frame, relPoint, x, y)
-  return true
+  for _, s in ipairs(sides) do
+    local room = s[3] > 0 and (screenW - right - AUTO_GAP) or (left - AUTO_GAP)
+    if room >= w then
+      mover:ClearAllPoints()
+      mover:SetPoint(s[1], target, s[2], s[3], y)
+      return true
+    end
+  end
+  return false
+end
+
+local function anchorBeside(frame)
+  return ui.dockBeside(window, frame)
 end
 
 -- Pop the window up for a merchant/AH visit. Never repositions an
@@ -1269,7 +1323,7 @@ function ui.init()
     { "use", function() ui.useQueued() end },
     { "sell", function() ui.sellQueued() end },
     { "disenchant" },
-    { "vendor", function() ui.vendorQueued() end },
+    { "vendor", function() ui.queueVendor() end },
     { "destroy", function() confirmDestroy() end },
   }
   for i, def in ipairs(defs) do
@@ -1379,8 +1433,10 @@ function ui.init()
     if event == "MERCHANT_SHOW" then
       merchantOpen = true
       if ns.config.get("autoOpenVendor") then autoShow(MerchantFrame, "vendor") end
+      if ns.handoff then ns.handoff.maybeShow("vendor") end
     elseif event == "MERCHANT_CLOSED" then
       merchantOpen = false
+      if ns.handoff then ns.handoff.hide() end
     elseif event == "AUCTION_HOUSE_SHOW" then
       -- The AH frame loads on demand, so a missed dock gets one delayed
       -- retry, skipped if the user moved the window meanwhile.
@@ -1397,6 +1453,7 @@ function ui.init()
       end
     elseif event == "BAG_UPDATE_DELAYED" or event == "BANKFRAME_OPENED" then
       if window:IsShown() then ui.rescan(true) end
+      if ns.handoff then ns.handoff.refresh() end
     elseif event == "GET_ITEM_INFO_RECEIVED" then
       -- Cold-cache items rank as "needs review"; re-rank once the data
       -- lands. Coalesced: one delayed rescan per burst, not one per item.

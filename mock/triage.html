@@ -5,7 +5,7 @@
 <!--
   VocWarbank UI mock — TEMPORARY design iteration, never packaged.
   Open directly: file://.../mock/triage.html (no server, no network).
-  Ignored by git (.gitignore), the packager (.pkgmeta), and lint (.luacheckrc).
+  Ignored by the packager (.pkgmeta) and lint (.luacheckrc).
 
   PORT-BACK CHECKLIST (mock -> Lua target):
     --vw-icon-size/--vw-pitch/--vw-cols/--vw-head-h -> ui.lua ICON_SIZE/PITCH/COLS/HEAD_H
@@ -19,6 +19,7 @@
                                                    GameFontDisable (ui.lua widget fonts)
     [data-look=baganator] tokens                -> theme.lua BGR_* + bgrStyleButton
     Layout offsets (top/left/right/bottom)      -> ui.lua SetPoint calls, same numbers:
+    #vw-handoff rows/footer                     -> handoff.lua HW_* geometry (300 wide, rows y30/p24, 8 max)
                                                    Lua -N px == CSS N px from the same edge.
 
   DESIGN DELTAS (mock leads, ui.lua follows on port):
@@ -73,6 +74,23 @@
        mail branch with a "set an enchanter" title when no
        enchanter is configured; verify DE-from-bank against
        Blizzard source before enabling stowed items in person.
+
+  DESIGN 10. Action queue + merchant handoff. The Vendor
+     button queues the selected vendor-verdict items (toggle
+     per item, counts merge by itemID) instead of selling;
+     queued icons carry an inset gold ring under both looks
+     and a "Queued: Vendor" tooltip line. Opening a merchant
+     with a non-empty vendor queue pops the handoff dialog
+     beside MerchantFrame: one row per queued item (icon,
+     name, xcount, value), missing/stowed rows dimmed with
+     their reason, then a single Sell button ("Sell N stacks
+     (~Xg)") plus Not now (hides, keeps the queue). At most
+     8 rows, then "+N more". Port: queue.lua (model +
+     resolve), handoff.lua (dialog), ui.lua (button queues,
+     paintIcon ring), theme.lua (paintQueued hook), /vw
+     queue + clear (main.lua). The queue persists in
+     VocWarbankDB; rows are itemID-based and re-resolve
+     against a fresh scan at handoff time.
 
   FIDELITY GAPS (do not port these literally):
     Fonts are system fallbacks; in-game uses Friz Quadrata variants.
@@ -256,6 +274,8 @@ body[data-look="baganator"] #vw-sort-dir[aria-pressed="true"] {
   padding: 2px; border: none; cursor: pointer; }
 .vw-icon.vw-dim { opacity: 0.35; } /* LUA: search non-match SetAlpha(0.35) */
 .vw-icon.vw-sel { box-shadow: 0 0 0 2px var(--vw-sel); } /* LUA: sel plate -2..+2 */
+.vw-icon.vw-queued { box-shadow: inset 0 0 0 2px #ffd100; } /* DESIGN 10: queued ring (LUA: theme.paintQueued) */
+.vw-icon.vw-sel.vw-queued { box-shadow: 0 0 0 2px var(--vw-sel), inset 0 0 0 2px #ffd100; }
 .vw-art { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
   font-size: 15px; font-weight: bold; color: rgba(255,255,255,0.85);
   background: linear-gradient(135deg, rgba(0,0,0,0.55), rgba(0,0,0,0.15)); } /* mock art; in-game: item texture */
@@ -281,6 +301,27 @@ body[data-look="baganator"] #vw-sort-dir[aria-pressed="true"] {
   padding: 5px 8px; font-size: 12px; pointer-events: none; }
 #vw-tooltip .tt-name { font-weight: bold; }
 #vw-tooltip .tt-line { color: #fff; }
+#vw-tooltip .tt-queued { color: #ffd100; }
+/* DESIGN 10: handoff dialog (LUA: handoff.lua VocWarbankHandoff, 300 wide, rows y30/p24) */
+#mock-stage { display: none; gap: 8px; align-items: flex-start; }
+#mock-merchant-frame { width: 384px; height: 160px; border: 2px dashed #4a4a4a; border-radius: 4px;
+  color: var(--vw-text-dis); font-size: 12px; display: flex; align-items: center; justify-content: center; }
+#vw-handoff { width: 300px; font-size: 12px; }
+body[data-look="default"] #vw-handoff { background: linear-gradient(#262b38, #1b1f2a); border: 3px solid #4a4f5e; border-radius: 6px; }
+body[data-look="baganator"] #vw-handoff { background: rgba(13, 13, 13, 0.7); border: 2px solid #595959; border-radius: 2px; }
+.vw-ho-title { text-align: center; font-weight: bold; height: 24px; line-height: 24px; position: relative; }
+body[data-look="default"] .vw-ho-title { color: var(--vw-text-normal); }
+.vw-ho-close { position: absolute; right: 4px; top: 2px; background: none; border: none; color: #ff8080; font-size: 14px; cursor: pointer; }
+.vw-ho-row { display: flex; align-items: center; gap: 6px; height: 20px; margin: 2px 12px; }
+.vw-ho-art { width: 20px; height: 20px; flex: none; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: bold; color: rgba(255,255,255,0.85); }
+.vw-ho-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vw-ho-val { color: var(--vw-text-hi); }
+.vw-ho-row.vw-ho-miss { opacity: 0.55; }
+.vw-ho-more { margin: 2px 12px; color: var(--vw-text-dis); font-size: 11px; }
+.vw-ho-foot { display: flex; gap: 8px; margin: 8px 12px 12px; }
+#vw-ho-sell { flex: 1; height: 22px; }
+#vw-ho-later { width: 80px; height: 22px; }
 </style>
 </head>
 <body data-look="default">
@@ -328,7 +369,18 @@ body[data-look="baganator"] #vw-sort-dir[aria-pressed="true"] {
   <button class="vw-btn vw-act" id="vw-btn-vendor" title="Sell the selected items at a merchant">Vendor (0)</button>
   <button class="vw-btn vw-act" id="vw-btn-destroy" title="Destroy the selected items (with confirmation)">Destroy (0)</button>
   <div id="vw-de-note"></div>
-  <div id="vw-tooltip"><div class="tt-name"></div><div class="tt-line tt-verdict"></div><div class="tt-line tt-value"></div></div>
+  <div id="vw-tooltip"><div class="tt-name"></div><div class="tt-line tt-verdict"></div><div class="tt-line tt-queued"></div><div class="tt-line tt-value"></div></div>
+</div>
+<div id="mock-stage">
+  <div id="mock-merchant-frame">Merchant (mock-only placeholder)</div>
+  <div id="vw-handoff" role="dialog" aria-label="VocWarbank handoff mock">
+    <div class="vw-ho-title">VocWarbank: Vendor<button class="vw-ho-close" title="Not now">×</button></div>
+    <div id="vw-ho-rows"></div>
+    <div class="vw-ho-foot">
+      <button class="vw-btn" id="vw-ho-sell">Sell</button>
+      <button class="vw-btn" id="vw-ho-later">Not now</button>
+    </div>
+  </div>
 </div>
 <script>
 "use strict";
@@ -389,6 +441,8 @@ const RANKED = [
 let groupMode = "category", filter = "all", searchText = "";
 let sortMode = "off", sortReverse = false;
 let collapsed = {}, selected = {}, merchantOpen = false, isEnchanter = false;
+let queued = { vendor: {} }; /* DESIGN 10: action -> itemID -> count (LUA: queue.lua) */
+let handoffHidden = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -595,10 +649,13 @@ function updateTexts() {
     deBtn.title = isEnchanter ? "Disenchant the selected items in person"
       : "Mail the selected items to your enchanter";
   }
-  setButton("vw-btn-vendor", "Vendor", g.vendor || 0, merchantOpen);
+  /* DESIGN 10: Vendor queues (toggle per item); the count is the queued total */
+  const qVendor = Object.values(queued.vendor).reduce((a, b) => a + b, 0);
+  setButton("vw-btn-vendor", "Vendor", qVendor, (g.vendor || 0) > 0 || qVendor > 0);
   setButton("vw-btn-destroy", "Destroy", g.destroy || 0, true);
-  $("vw-btn-vendor").title = merchantOpen ? "Sell the selected items at a merchant"
-    : "Vendor needs an open merchant window";
+  $("vw-btn-vendor").title = "Queue the selected items for the vendor"
+    + (qVendor > 0 ? " (" + qVendor + " queued)" : "")
+    + " — click again to unqueue";
   /* DESIGN 8: the Actions group frames itself around the live selection */
   const nSel = t.slots + lastKeeps;
   $("vw-lab-act").textContent = nSel > 0 ? "Actions · " + nSel + " selected" : "Actions";
@@ -671,6 +728,7 @@ function showTooltip(anchor, e) {
   tt.querySelector(".tt-name").style.color = "var(--vw-q" + e.q + ")";
   tt.querySelector(".tt-verdict").textContent = VERDICT_LABEL[e.verdict] + " — " + e.reason;
   tt.querySelector(".tt-value").textContent = e.value != null ? "Value: " + formatGold(e.value) : "";
+  tt.querySelector(".tt-queued").textContent = queued.vendor[e.id] ? "Queued: Vendor" : "";
   const wr = win.getBoundingClientRect(), r = anchor.getBoundingClientRect();
   tt.style.display = "block";
   tt.style.left = Math.min(r.right - wr.left + 8, 660 - 270) + "px";
@@ -744,6 +802,7 @@ function render() {
           b.appendChild(l);
         }
         if (selected[entryKey(e)]) b.classList.add("vw-sel");
+        if (queued.vendor[e.id]) b.classList.add("vw-queued");
         if (!searchMatch(b.dataset.name, searchText)) b.classList.add("vw-dim");
         b.onclick = () => toggleKey(entryKey(e));
         b.onmouseenter = () => showTooltip(b, e);
@@ -824,7 +883,25 @@ $("vw-btn-disenchant").onclick = () => {
   const p = dePartition(lastQueued.filter((e) => e.verdict === "disenchant"), isEnchanter);
   mockAct(isEnchanter ? "disenchant" : "mail for DE", p.ready.length);
 };
-$("vw-btn-vendor").onclick = () => mockAct("vendor", lastTotals.groups.vendor || 0);
+/* DESIGN 10: toggle the selected vendor-verdict items in/out of the queue, per itemID */
+$("vw-btn-vendor").onclick = () => {
+  const sel = lastQueued.filter((e) => e.verdict === "vendor");
+  const byID = {};
+  for (const e of sel) byID[e.id] = (byID[e.id] || 0) + (e.count || 1);
+  let added = 0, removed = 0;
+  for (const id of Object.keys(byID)) {
+    if (queued.vendor[id]) {
+      removed += Math.min(queued.vendor[id], byID[id]);
+      queued.vendor[id] -= byID[id];
+      if (queued.vendor[id] <= 0) delete queued.vendor[id];
+    } else { queued.vendor[id] = byID[id]; added += byID[id]; }
+  }
+  mockNote = added > 0 ? "MOCK: queued " + added + " item(s) for the vendor"
+    : removed > 0 ? "MOCK: unqueued " + removed + " item(s)" : null;
+  handoffHidden = false;
+  render();
+  updateHandoff();
+};
 $("vw-btn-destroy").onclick = () => mockAct("destroy", lastTotals.groups.destroy || 0);
 function setLook(name) {
   if (name !== "default" && name !== "baganator") return;
@@ -832,7 +909,7 @@ function setLook(name) {
   document.querySelectorAll("[data-setlook]").forEach((o) => o.setAttribute("aria-pressed", o.dataset.setlook === name ? "true" : "false"));
 }
 document.querySelectorAll("[data-setlook]").forEach((b) => { b.onclick = () => setLook(b.dataset.setlook); });
-$("mock-merchant").onchange = (ev) => { merchantOpen = ev.target.checked; updateTexts(); }; /* LUA: MERCHANT_SHOW/CLOSED */
+$("mock-merchant").onchange = (ev) => { merchantOpen = ev.target.checked; handoffHidden = false; updateTexts(); updateHandoff(); }; /* LUA: MERCHANT_SHOW/CLOSED */
 $("mock-enchanter").onchange = (ev) => { isEnchanter = ev.target.checked; updateTexts(); }; /* LUA: live GetProfessions scan for skill 333 */
 
 /* MOCK-ONLY: ?look=&filter=&search=&select=&enchanter=&merchant= deep-link mock states */
@@ -853,7 +930,88 @@ if (typeof location !== "undefined" && location.search) {
   } catch (err) {}
 }
 
+/* DESIGN 10: merchant handoff (LUA: handoff.lua). Resolves the vendor queue
+   against the fixtures: bag stacks are ready (whole stacks sell), items
+   found only outside bags are stowed, the rest are missing. */
+function resolveVendor() {
+  const ready = [], missing = [], stowed = [];
+  for (const id of Object.keys(queued.vendor).map(Number)) {
+    const stacks = RANKED.filter((e) => e.id === id && e.scope === "bags");
+    const elsewhere = RANKED.filter((e) => e.id === id && e.scope !== "bags");
+    let need = queued.vendor[id];
+    for (const e of stacks) {
+      if (need <= 0) break;
+      ready.push(e);
+      need -= (e.count || 1);
+    }
+    if (need > 0 && elsewhere.length > 0) stowed.push({ id, n: need });
+    else if (need > 0) missing.push({ id, n: need });
+  }
+  return { ready, missing, stowed };
+}
+function updateHandoff() {
+  const stage = $("mock-stage");
+  const empty = Object.keys(queued.vendor).length === 0;
+  stage.style.display = merchantOpen && !empty && !handoffHidden ? "flex" : "none";
+  if (stage.style.display === "none") return;
+  const res = resolveVendor();
+  const rows = $("vw-ho-rows");
+  rows.innerHTML = "";
+  let shown = 0, more = 0, gold = 0;
+  const addRow = (name, q, count, value, why) => {
+    if (shown >= 8) { more += 1; return; }
+    shown += 1;
+    const r = document.createElement("div");
+    r.className = "vw-ho-row" + (why ? " vw-ho-miss" : "");
+    r.innerHTML = '<span class="vw-ho-art" style="background:var(--vw-q' + q + ')">' + name.charAt(0) + "</span>";
+    const nm = document.createElement("span");
+    nm.className = "vw-ho-name";
+    nm.style.color = "var(--vw-q" + q + ")";
+    nm.textContent = name + (count > 1 ? " ×" + count : "") + (why ? " (" + why + ")" : "");
+    r.appendChild(nm);
+    const v = document.createElement("span");
+    v.className = "vw-ho-val";
+    v.textContent = value != null ? formatGold(value) : "";
+    r.appendChild(v);
+    rows.appendChild(r);
+  };
+  for (const e of res.ready) { gold += (e.value || 0); addRow(e.name, e.q, e.count || 1, e.value, null); }
+  for (const m of res.stowed) {
+    const e = RANKED.filter((x) => x.id === m.id)[0];
+    addRow(e ? e.name : "Item " + m.id, e ? e.q : 1, m.n, null, "stowed");
+  }
+  for (const m of res.missing) {
+    const e = RANKED.filter((x) => x.id === m.id)[0];
+    addRow(e ? e.name : "Item " + m.id, e ? e.q : 1, m.n, null, "not in bags");
+  }
+  if (more > 0) {
+    const d = document.createElement("div");
+    d.className = "vw-ho-more";
+    d.textContent = "+" + more + " more";
+    rows.appendChild(d);
+  }
+  const sell = $("vw-ho-sell");
+  sell.textContent = "Sell " + res.ready.length + " stacks (~" + formatGold(gold) + ")";
+  sell.disabled = res.ready.length === 0;
+  sell.title = res.ready.length > 0 ? "Sell the listed stacks (whole stacks sell)" : "Nothing in bags to sell";
+}
+$("vw-ho-sell").onclick = () => {
+  const res = resolveVendor();
+  const sold = {};
+  for (const e of res.ready) sold[e.id] = (sold[e.id] || 0) + (e.count || 1);
+  for (const id of Object.keys(sold)) {
+    queued.vendor[id] -= sold[id];
+    if (queued.vendor[id] <= 0) delete queued.vendor[id];
+  }
+  mockNote = "MOCK: sold " + res.ready.length + " stack(s) (no-op)";
+  render();
+  updateHandoff();
+};
+$("vw-ho-later").onclick = () => { handoffHidden = true; updateHandoff(); };
+document.querySelector(".vw-ho-close").onclick = () => { handoffHidden = true; updateHandoff(); };
+
 render();
+updateHandoff();
 </script>
 </body>
 </html>

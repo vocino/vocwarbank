@@ -203,7 +203,8 @@ do
   cns.config.init()
   check("config fills defaults",
     cns.db.priceSource == "auto" and cns.db.scope == "bags"
-    and cns.db.ahThreshold == 100000 and type(cns.db.neverSell) == "table")
+    and cns.db.ahThreshold == 100000 and type(cns.db.neverSell) == "table"
+    and type(cns.db.queue) == "table")
   cns.db.neverSell[5] = true
   cns.db = {}
   cns.config.init()
@@ -429,6 +430,9 @@ do
   st = tns.theme.status()
   check("status reports baganator", st.look == "baganator" and st.baganatorSkin == "dark")
   check("no EUI entry point", tns.theme.onEUISkin == nil)
+  tns.theme.styleWindow({})
+  tns.theme.decide()
+  check("extra windows survive look changes", tns.theme.current() == "baganator")
   _G.C_AddOns, _G.BAGANATOR_CONFIG, _G.BAGANATOR_CURRENT_PROFILE = nil, nil, nil
 end
 
@@ -497,6 +501,121 @@ do
   check("armor splits by expansion", sections[2].label == "Armor: The War Within"
     and sections[3].label == "Armor: Dragonflight")
   check("filter narrows sections", #u.buildSections(armor, "category", function() return nil end, "vendor") == 0)
+end
+
+-- queue.lua: identity-based action queues (no frames needed at load)
+do
+  mock.reset()
+  local qns = loadAddon("queue.lua")
+  local q = qns.queue
+  local function qe(id, extra)
+    local item = { itemID = id, scope = "bags", bag = 0, slot = id,
+      count = 1, link = "|cffffffff|Hitem:" .. id .. "|h[Item " .. id .. "]|h|r" }
+    for k, v in pairs(extra or {}) do item[k] = v end
+    return { verdict = "vendor", reason = "x", item = item }
+  end
+  check("queue starts empty", q.empty("vendor") and #q.actions() == 0 and #q.list("vendor") == 0)
+  check("queue add returns items",
+    q.add("vendor", { qe(1), qe(2, { count = 5 }) }) == 6)
+  check("queue counts merge by item",
+    q.count("vendor") == 6 and #q.list("vendor") == 2)
+  q.add("vendor", { qe(1, { count = 3 }) })
+  check("queue re-add merges", q.count("vendor") == 9)
+  local rows = q.list("vendor")
+  check("queue list sorts by item", rows[1].id == 1 and rows[1].n == 4
+    and rows[2].id == 2 and rows[2].n == 5 and rows[2].link:find("Item 2") ~= nil)
+  check("queue actions lists vendor", #q.actions() == 1 and q.actions()[1] == "vendor")
+  check("queue queuedAs finds rows", q.queuedAs(qe(1)) == "vendor" and q.queuedAs(qe(999)) == nil)
+  check("queue remove decrements", q.remove("vendor", 2, 2) == 2 and q.count("vendor") == 7)
+  check("queue remove drops at zero", q.remove("vendor", 2) == 3 and q.count("vendor") == 4)
+  check("queue remove guards junk", q.remove("vendor", 1, 0) == 0 and q.remove("vendor", 1, -2) == 0
+    and q.remove("vendor", 999) == 0 and q.count("vendor") == 4)
+  local added, removed = q.toggle("vendor", { qe(1, { count = 4 }), qe(3, { count = 2 }) })
+  check("queue toggle splits add/remove", added == 2 and removed == 4 and q.count("vendor") == 2)
+  mock.cfg.queue = {}
+  q.add("vendor", { qe(10, { count = 5 }), qe(11, { count = 2 }), qe(12, { count = 9 }) })
+  local scan = {
+    qe(10, { count = 20 }), qe(99), qe(11, { count = 2 }),
+    qe(12, { scope = "bank", bag = -1, slot = 1, count = 9 }),
+  }
+  local res = q.resolve("vendor", scan)
+  check("resolve readies bag stacks in scan order",
+    #res.ready == 2 and res.ready[1].item.itemID == 10 and res.ready[2].item.itemID == 11)
+  check("resolve includes the partial stack whole", res.ready[1].item.count == 20)
+  check("resolve reports stowed with the remainder",
+    #res.stowed == 1 and res.stowed[1].id == 12 and res.stowed[1].n == 9)
+  check("resolve reports nothing missing", #res.missing == 0)
+  check("prune drains sold stacks", q.prune("vendor", res.ready) == 9)
+  check("prune leaves the stowed row", q.count("vendor") == 9 and q.list("vendor")[1].id == 12)
+  mock.cfg.queue = {}
+  q.add("vendor", { qe(20, { count = 5 }) })
+  res = q.resolve("vendor", { qe(20, { count = 3, slot = 1 }),
+    qe(20, { count = 3, slot = 2 }), qe(20, { count = 3, slot = 3 }) })
+  check("resolve caps at the queued count", #res.ready == 2)
+  q.clear("vendor")
+  check("queue clear drops the action", q.empty("vendor") and #q.actions() == 0)
+  q.add("vendor", { qe(1) })
+  q.add("sell", { qe(2) })
+  q.clear()
+  check("queue clear-all empties everything", #q.actions() == 0)
+  q.add("vendor", { qe(50, { count = 3 }) })
+  res = q.resolve("vendor", { qe(51) })
+  check("resolve reports missing with the remainder",
+    #res.ready == 0 and #res.missing == 1 and res.missing[1].id == 50 and res.missing[1].n == 3)
+  check("queue skips ID-less entries", q.add("vendor", { { item = {} }, {} }) == 0)
+end
+
+-- config: queue default fills and ragged rows repair
+do
+  local cns = loadConfig({ queue = "junk" })
+  cns.config.init()
+  check("config repairs corrupt queue", type(cns.db.queue) == "table" and next(cns.db.queue) == nil)
+end
+
+do
+  local cns = loadConfig({ queue = {
+    vendor = { [7] = { link = "x", n = 3, scope = "bags" }, [8] = { n = 0 }, [9] = "junk" },
+    bogus = "junk",
+  } })
+  cns.config.init()
+  check("config keeps valid queue rows",
+    cns.db.queue.vendor[7] ~= nil and cns.db.queue.vendor[7].n == 3)
+  check("config drops ragged queue rows",
+    cns.db.queue.vendor[8] == nil and cns.db.queue.vendor[9] == nil and cns.db.queue.bogus == nil)
+end
+
+-- main.lua: /vw queue list and clear (chat captured, then restored)
+do
+  mock.reset()
+  local mns = loadAddon("main.lua")
+  mns.queue = loadAddon("queue.lua").queue
+  mns.ui = { isOpen = function() return false end,
+    rescan = function() end,
+    linkName = function(link) return link end }
+  local handoffs = 0
+  mns.handoff = { onQueueChanged = function() handoffs = handoffs + 1 end }
+  local printed = {}
+  local realPrint = print
+  print = function(s) printed[#printed + 1] = s end
+  _G.SlashCmdList.VOCWARBANK("queue")
+  local emptyLines = #printed
+  mns.queue.add("vendor", { { item = { itemID = 7, count = 2, link = "Shiny", scope = "bags" } } })
+  _G.SlashCmdList.VOCWARBANK("queue")
+  local listLines = #printed
+  _G.SlashCmdList.VOCWARBANK("queue clear vendor")
+  local clearLines = #printed
+  _G.SlashCmdList.VOCWARBANK("queue clear bogus")
+  local bogusLines = #printed
+  print = realPrint
+  check("queue lists nothing when empty", emptyLines == 1 and printed[1]:find("nothing queued") ~= nil)
+  check("queue lists rows by action",
+    listLines - emptyLines == 2 and printed[emptyLines + 1]:find("vendor %(2 queued%)") ~= nil
+    and printed[emptyLines + 2] == "  Shiny ×2")
+  check("queue clear drops the action", mns.queue.empty("vendor")
+    and clearLines - listLines == 1 and printed[clearLines]:find("vendor queue cleared") ~= nil)
+  check("queue clear pokes the handoff", handoffs == 1)
+  check("queue clear rejects unknown actions",
+    bogusLines - clearLines == 1 and printed[bogusLines]:find("usage:") ~= nil)
 end
 
 print(string.format("%d passed, %d failed", pass, fail))

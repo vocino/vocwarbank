@@ -140,6 +140,11 @@ narrow -> select -> act, left to right.
   a search is active ("Armor (2/3)"), and collapsed headers holding
   matches pulse. Headers collapse with a click; collapse, sort mode,
   and direction persist.
+- The merchant handoff: with vendor items queued, opening any
+  merchant pops a small dialog beside the merchant frame listing the
+  queued rows with one Sell button (whole stacks sell) and Not now
+  (closes, keeps the queue). `/vw queue` lists the queue, `/vw queue
+  clear [action]` drops it.
 
 ## Looks
 
@@ -163,8 +168,13 @@ next scan; `/vw theme` reports the live look and any skin error.
 ## Actions
 
 - Use: consumes one-click items from bags (open caches, collect decor).
-- Vendor: sells at a merchant, keeps buyback intact; the button
-  waits for an open merchant window and says so.
+- Vendor: queue from the window, sell at the merchant. The button
+  toggles the selected vendor-verdict items in and out of the
+  persisted queue (counts merge by itemID); queued icons carry a
+  gold ring. Opening a merchant with a queued list pops the handoff
+  dialog beside the merchant frame: the queued rows (missing/stowed
+  dimmed with their reasons) and one Sell button for the lot, whole
+  stacks selling, buyback intact.
 - Disenchant adapts to who is at the keyboard. On an enchanter the
   button reads "Disenchant" and casts in person, one item per click,
   through a secure macro button (`/cast Disenchant` + `/use bag

@@ -17,6 +17,8 @@ providers.lua
 scanner.lua
 ranking.lua
 theme.lua
+queue.lua
 ui.lua
+handoff.lua
 settings.lua
 main.lua
