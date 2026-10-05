@@ -23,11 +23,11 @@ globals = {
 read_globals = {
   "_G",
   "C_AddOns", "C_Container", "C_EquipmentSet", "C_HousingCatalog", "C_Item",
-  "C_MountJournal", "C_PetJournal", "C_QuestLog", "C_Timer", "C_ToyBox",
+  "C_MountJournal", "C_PetJournal", "C_QuestLog", "C_Spell", "C_Timer", "C_ToyBox",
   "C_TransmogCollection", "Enum",
   "CreateFrame", "CreateObjectPool", "CreateSettingsListSectionHeaderInitializer",
   "GameTooltip", "GetCursorInfo", "DeleteCursorItem", "GetExpansionLevel",
-  "GetProfessionInfo", "GetProfessions", "IsShiftKeyDown", "PlayerHasToy",
+  "GetProfessionInfo", "GetProfessions", "InCombatLockdown", "IsShiftKeyDown", "PlayerHasToy",
   "Mixin", "BackdropTemplateMixin", "FramePool_HideAndClearAnchors", "Pool_HideAndClearAnchors",
   "Settings", "SettingsPanel", "StaticPopup_Show", "UIParent", "UISpecialFrames",
   "ITEM_QUALITY_COLORS", "YES", "NO",

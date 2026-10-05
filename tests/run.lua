@@ -120,13 +120,13 @@ mock.transmog[110] = true
 r = rank(110)
 check("old green disenchants", r.verdict == "disenchant" and r.reason == "disenchantable")
 
--- 11. quest: completed -> trash, live -> keep
+-- 11. quest: completed -> destroy, live -> keep
 mock.reset()
 mock.item(111, { classID = 12, expansionID = 9 })
 mock.completedQuests[77] = "The Nexus Job"
 mock.tooltips[111] = { "Scrap of Notes", "The Nexus Job" }
 r = rank(111)
-check("dead quest item trashes", r.verdict == "trash" and r.reason == "quest complete")
+check("dead quest item destroys", r.verdict == "destroy" and r.reason == "quest complete")
 
 mock.reset()
 mock.item(111, { classID = 12, expansionID = 9 })
@@ -270,7 +270,19 @@ check("quest cache is sticky within session",
   qns.ranking.rank({ qi })[1].verdict == "keep")
 qns.ranking.refreshQuests()
 local q3 = qns.ranking.rank({ qi })[1]
-check("quest refresh re-trashes", q3.verdict == "trash" and q3.reason == "quest complete")
+check("quest refresh re-ranks to destroy", q3.verdict == "destroy" and q3.reason == "quest complete")
+local hasTrash = false
+for _, v in ipairs(qns.ranking.verdictOrder) do if v == "trash" then hasTrash = true end end
+check("trash is no longer a verdict", not hasTrash and qns.ranking.verdictOrder[#qns.ranking.verdictOrder] == "destroy")
+
+-- ranking: live profession check for the window's disenchant button
+mock.reset()
+mock.professionIndices = { 1 }
+mock.professionSkills = { [1] = 333 }
+local pns2 = loadAddon("ranking.lua")
+check("enchanting skill constant", pns2.ranking.SKILL_ENCHANTING == 333)
+check("hasProfession sees enchanting", pns2.ranking.hasProfession(333) == true)
+check("hasProfession misses others", pns2.ranking.hasProfession(164) == false)
 
 -- main.lua: slash arg handling (chat captured, then restored before checks)
 mock.reset()
@@ -418,6 +430,73 @@ do
   check("status reports baganator", st.look == "baganator" and st.baganatorSkin == "dark")
   check("no EUI entry point", tns.theme.onEUISkin == nil)
   _G.C_AddOns, _G.BAGANATOR_CONFIG, _G.BAGANATOR_CURRENT_PROFILE = nil, nil, nil
+end
+
+-- ui.lua: pure helpers behind the window (no frames needed at load)
+do
+  mock.reset()
+  local uns = loadAddon("ui.lua")
+  local u = uns.ui
+  local function e(id, verdict, extra)
+    local entry = { verdict = verdict, reason = "x",
+      item = { itemID = id, scope = "bags", bag = 0, slot = id, count = 1,
+               link = "|cffffffff|Hitem:" .. id .. "|h[Item " .. id .. "]|h|r" } }
+    for k, v in pairs(extra or {}) do entry.item[k] = v end
+    return entry
+  end
+  check("gold formats with grouping", u.formatGold(12400000) == "1,240g"
+    and u.formatGold(1234567) == "123g" and u.formatGold(250) == "2s" and u.formatGold(nil) == "?")
+
+  -- facets: "all" leads, verdicts follow ranking order, unknowns trail
+  local order = { "keep", "use", "sell", "disenchant", "vendor", "destroy" }
+  local ranked = { e(1, "vendor"), e(2, "keep"), e(3, "destroy"), e(4, "vendor"), e(5, "zzz") }
+  local present, counts = u.facetCounts(ranked, order)
+  check("facets lead with all", present[1] == "all" and counts.all == 5)
+  check("facets follow verdict order", present[2] == "keep" and present[3] == "vendor" and present[4] == "destroy")
+  check("facets count per verdict", counts.vendor == 2 and counts.keep == 1 and counts.destroy == 1)
+  check("unknown verdicts trail", present[5] == "zzz" and #present == 5)
+
+  -- disenchant partition: in person any bag item goes; by mail soulbound
+  -- stays; stowed never goes
+  local de = { e(10, "disenchant"), e(11, "disenchant", { bound = true }),
+    e(12, "disenchant", { scope = "bank", bag = -1, slot = 3 }) }
+  local ready, blocked = u.dePartition(de, true)
+  check("in person takes soulbound", #ready == 2 and blocked.soulbound == 0 and blocked.stowed == 1)
+  check("in person note", u.blockedNote(blocked) == "1 can't go: 1 stowed")
+  ready, blocked = u.dePartition(de, false)
+  check("mail skips soulbound", #ready == 1 and ready[1].item.itemID == 10
+    and blocked.soulbound == 1 and blocked.stowed == 1 and blocked.total == 2)
+  check("mail note lists both", u.blockedNote(blocked) == "2 can't go: 1 soulbound, 1 stowed")
+  check("no note when clear", u.blockedNote({ soulbound = 0, stowed = 0, total = 0 }) == nil)
+
+  -- selection totals: destroy queues, keep counts aside
+  local sel = {}
+  for _, entry in ipairs(ranked) do sel[u.entryKey(entry)] = true end
+  local queued, totals, keeps = u.computeSelection(ranked, sel)
+  check("destroy is actionable", totals.groups.destroy == 1 and totals.groups.vendor == 2)
+  check("keep and unknown verdicts are not queued", #queued == 3 and keeps == 2)
+  check("trash is not a verdict the window knows", totals.groups.trash == nil)
+
+  -- sort: value desc, reverse flips, ties keep bag order
+  local list = { e(1, "vendor"), e(2, "vendor"), e(3, "vendor") }
+  list[1].value, list[2].value, list[3].value = 50, 500, 500
+  u.sortEntries(list, "value", false)
+  check("value sort descends, stable", list[1].item.itemID == 2 and list[2].item.itemID == 3 and list[3].item.itemID == 1)
+  u.sortEntries(list, "value", true)
+  check("reverse sort ascends", list[1].item.itemID == 1)
+  check("sort labels name bag order", u.SORT_LABEL.off == "Bag order" and u.SORT_MODES[1] == "off")
+
+  -- sections: pins lead, sub-split on the other axis
+  local armor = { e(20, "keep"), e(21, "keep"), e(22, "keep") }
+  for _, entry in ipairs(armor) do entry.detail = { classID = 4 } end
+  armor[3].item.itemID = 9001
+  local exp = { [20] = "tww", [21] = "df", [9001] = "tww" }
+  local sections = u.buildSections(armor, "category", function(id) return exp[id] end, "all",
+    { never = { [9001] = true }, always = {} })
+  check("never-sell pins first", sections[1].label == "Never Sell" and #sections[1].entries == 1)
+  check("armor splits by expansion", sections[2].label == "Armor: The War Within"
+    and sections[3].label == "Armor: Dragonflight")
+  check("filter narrows sections", #u.buildSections(armor, "category", function() return nil end, "vendor") == 0)
 end
 
 print(string.format("%d passed, %d failed", pass, fail))

@@ -2,28 +2,38 @@ local _, ns = ...
 local ui = {}
 ns.ui = ui
 
+-- Layout follows mock/triage.html (DESIGN 7): a 660x640 window split
+-- into a sidebar (x12..192: search, verdict facets, group-by,
+-- selection, actions, source) and a content column (x200..648: stats,
+-- sort, the icon grid, the dry-run footer). Lua -N px == CSS N px
+-- from the same edge.
 local ICON_SIZE = 36
 local PITCH = 40
-local COLS = 14
+local COLS = 10
 local HEAD_H = 20
+local SIDE_X, SIDE_W = 20, 164      -- sidebar controls: left edge, width
+local CONTENT_X = 200               -- content column left edge
+local CHILD_W, HEAD_W = 412, 404    -- scroll child, section headers
+local FACET_Y, FACET_PITCH = 76, 22 -- verdict facet rows
+local ACTION_Y, ACTION_PITCH = 408, 26
 local PLUS_TEX = "Interface\\Buttons\\UI-PlusButton-UP"
 local MINUS_TEX = "Interface\\Buttons\\UI-MinusButton-UP"
+local SORT_ARROW_ATLAS = "auctionhouse-ui-sortarrow" -- Blizzard_AuctionHouseTableBuilder.xml
+local DISENCHANT_SPELL = 13262
 
 local ACTIONABLE = {
-  sell = true, disenchant = true, vendor = true,
-  trash = true, destroy = true, use = true,
+  sell = true, disenchant = true, vendor = true, destroy = true, use = true,
 }
 
 local VERDICT_LABEL = {
   keep = "Keep", sell = "Sell", disenchant = "Disenchant",
-  vendor = "Vendor", trash = "Trash", destroy = "Destroy", use = "Use",
+  vendor = "Vendor", destroy = "Destroy", use = "Use",
 }
 
 local VERDICT_COLOR = {
   keep = { 0.1, 0.9, 0.1 }, sell = { 1, 0.85, 0 },
   disenchant = { 0.2, 0.6, 1 }, vendor = { 0.7, 0.7, 0.7 },
-  trash = { 1, 0.4, 0.1 }, destroy = { 0.7, 0.1, 0.1 },
-  use = { 0.75, 0.5, 1 },
+  destroy = { 0.7, 0.1, 0.1 }, use = { 0.75, 0.5, 1 },
 }
 
 local QUALITY_COLOR = {
@@ -50,11 +60,6 @@ local EXP_ORDER = {
   "wod", "mop", "cata", "wotlk", "tbc", "classic",
 }
 
-local TAB_WIDTH = {
-  all = 44, keep = 56, sell = 48, disenchant = 88,
-  vendor = 62, trash = 56, destroy = 66, use = 48,
-}
-
 -- Pure helpers. Public so macros and tests can reuse them. ---------------
 function ui.formatGold(copper)
   if copper == nil then return "?" end
@@ -79,6 +84,11 @@ end
 function ui.entryKey(entry)
   local item = entry.item
   return (item.scope or "?") .. ":" .. (item.bag or item.tab or "?") .. ":" .. (item.slot or item.index or "?")
+end
+
+local function entryName(entry)
+  local link = entry.item.link or ""
+  return (link:match("%[(.-)%]") or link):lower()
 end
 
 -- Group specs. Priority is display order (lower rank wins); pins always
@@ -110,8 +120,9 @@ local function subLabel(mode, key)
   return EXP_LABEL[key]
 end
 
-local SORT_LABEL = { off = "Off", quality = "Quality", value = "Value", name = "Name" }
-local SORT_MODES = { "off", "quality", "value", "name" }
+-- Sort modes as the dropdown lists them; "off" is bag order.
+ui.SORT_LABEL = { off = "Bag order", quality = "Quality", value = "Value", name = "Name" }
+ui.SORT_MODES = { "off", "quality", "value", "name" }
 
 function ui.searchMatch(nameLower, query)
   return query == "" or (nameLower and nameLower:find(query, 1, true) ~= nil)
@@ -124,7 +135,7 @@ function ui.sortEntries(entries, mode, reverse)
   local pos, names = {}, {}
   for i, e in ipairs(entries) do
     pos[e] = i
-    names[e] = ((e.item.link or ""):match("%[(.-)%]") or e.item.link or ""):lower()
+    names[e] = entryName(e)
   end
   local function quality(e)
     local d = e.detail or {}
@@ -273,12 +284,67 @@ function ui.computeSelection(ranked, selected)
   return queued, totals, keepCount
 end
 
+-- Verdict facets for the sidebar: "all" first, then every verdict the
+-- scan produced, in ranking order (unknown verdicts trail, sorted).
+-- Returns the ordered list and the per-verdict counts.
+function ui.facetCounts(ranked, order)
+  local counts = { all = #ranked }
+  for _, entry in ipairs(ranked) do
+    counts[entry.verdict] = (counts[entry.verdict] or 0) + 1
+  end
+  local present, known = { "all" }, {}
+  for _, v in ipairs(order or {}) do
+    known[v] = true
+    if counts[v] then present[#present + 1] = v end
+  end
+  local extra = {}
+  for v in pairs(counts) do
+    if v ~= "all" and not known[v] then extra[#extra + 1] = v end
+  end
+  table.sort(extra)
+  for _, v in ipairs(extra) do present[#present + 1] = v end
+  return present, counts
+end
+
+-- Disenchant readiness. In person (an enchanter at the keyboard) any
+-- bag item goes, soulbound included; by mail, soulbound items cannot
+-- attach. Stowed items (bank, warbank) go neither way: the secure
+-- /use path only addresses bag slots. Returns the ready list and the
+-- blocked counts { soulbound, stowed, total }.
+function ui.dePartition(list, inPerson)
+  local ready, blocked = {}, { soulbound = 0, stowed = 0, total = 0 }
+  for _, entry in ipairs(list) do
+    local item = entry.item
+    if item.scope ~= "bags" or type(item.bag) ~= "number" or type(item.slot) ~= "number" then
+      blocked.stowed = blocked.stowed + 1
+      blocked.total = blocked.total + 1
+    elseif not inPerson and item.bound then
+      blocked.soulbound = blocked.soulbound + 1
+      blocked.total = blocked.total + 1
+    else
+      ready[#ready + 1] = entry
+    end
+  end
+  return ready, blocked
+end
+
+-- "3 can't go: 2 soulbound, 1 stowed", or nil when nothing is blocked.
+function ui.blockedNote(blocked)
+  if not blocked or blocked.total == 0 then return nil end
+  local parts = {}
+  if blocked.soulbound > 0 then parts[#parts + 1] = blocked.soulbound .. " soulbound" end
+  if blocked.stowed > 0 then parts[#parts + 1] = blocked.stowed .. " stowed" end
+  return blocked.total .. " can't go: " .. table.concat(parts, ", ")
+end
+
 -- Window state ------------------------------------------------------------
-local window, headerStats, headerSource, scroll, child
-local footer, footerGroups, emptyNote, closeBtn
-local iconPool, headPool, tabPool -- CreateObjectPools, built in init
-local buttons = {}
-local sortBtn, searchBox, searchClear, searchHint
+local window, side, headerStats, sourceText, scroll, child
+local footer, footerGroups, emptyNote, noMatchNote
+local iconPool, headPool, facetPool -- CreateObjectPools, built in init
+local buttons = {}                  -- action buttons by verdict
+local actionLabel, actionHint, deNote
+local sortDrop, sortBtn, sortDir, sortArrow
+local searchBox, searchHint
 local searchText = ""
 local poolReset = FramePool_HideAndClearAnchors or Pool_HideAndClearAnchors
   or function(_, f) f:Hide() f:ClearAllPoints() end
@@ -288,6 +354,9 @@ local lastQueued, lastTotals, lastKeeps = {}, { items = 0, slots = 0, gold = 0, 
 local selected = {}
 local groupMode, filter = "category", "all"
 local merchantOpen = false
+local deSecure = false     -- the disenchant button is a secure action button
+local deInPerson = false   -- an enchanter is at the keyboard: cast, don't mail
+local deSpellName = nil    -- localized Disenchant, for the secure macro
 
 local function verdictLabel(v) return VERDICT_LABEL[v] or v end
 
@@ -375,7 +444,8 @@ local function buildHeader(f)
   addFade(label)
   addFade(toggle)
   pulse:SetLooping("REPEAT")
-  local r = { button = f, label = label, toggle = toggle, pulse = pulse, key = nil, entries = nil }
+  local r = { button = f, label = label, toggle = toggle, pulse = pulse,
+    key = nil, entries = nil, base = "" }
   f._rec = r
   f:SetScript("OnClick", function()
     if IsShiftKeyDown() then ui.toggleSection(r.entries)
@@ -400,11 +470,54 @@ local function acquireHeader()
   return f._rec or buildHeader(f)
 end
 
+-- Verdict facet rows (mock: #vw-tabs): label left, scan count right,
+-- the active row tinted with a gold bar. Plain rows in both looks.
+local function buildFacet(b)
+  b:SetSize(SIDE_W, 20)
+  local active = b:CreateTexture(nil, "BACKGROUND")
+  active:SetAllPoints()
+  active:SetColorTexture(1, 0.82, 0, 0.12)
+  local bar = b:CreateTexture(nil, "BORDER")
+  bar:SetWidth(2)
+  bar:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
+  bar:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
+  bar:SetColorTexture(1, 0.82, 0, 1)
+  local hover = b:CreateTexture(nil, "HIGHLIGHT")
+  hover:SetAllPoints()
+  hover:SetColorTexture(1, 1, 1, 0.06)
+  local name = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  name:SetPoint("LEFT", b, "LEFT", 8, 0)
+  name:SetJustifyH("LEFT")
+  local count = b:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+  count:SetPoint("RIGHT", b, "RIGHT", -6, 0)
+  local r = { button = b, active = active, bar = bar, name = name, count = count, verdict = nil, n = 0 }
+  b._rec = r
+  b:SetScript("OnClick", function()
+    if r.verdict then filter = r.verdict render(lastRanked) end
+  end)
+  b:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    if r.verdict == "all" then
+      GameTooltip:AddLine("Show everything (" .. r.n .. ")")
+    else
+      GameTooltip:AddLine("Show only " .. verdictLabel(r.verdict):lower() .. " items (" .. r.n .. ")")
+    end
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  return r
+end
+
+local function acquireFacet()
+  local f = facetPool:Acquire()
+  return f._rec or buildFacet(f)
+end
+
 local function paintIcon(r, entry)
   local item, detail = entry.item, entry.detail or {}
   r.key = ui.entryKey(entry)
   r.entry = entry
-  r.searchName = ((item.link or ""):match("%[(.-)%]") or item.link or ""):lower()
+  r.searchName = entryName(entry)
   local iconID = item.icon or (item.itemID and C_Item.GetItemIconByID(item.itemID)) or nil
   if iconID then r.icon:SetTexture(iconID)
   else r.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") end
@@ -422,8 +535,41 @@ local function paintIcon(r, entry)
   r.button:SetAlpha(ui.searchMatch(r.searchName, searchText) and 1 or 0.35)
 end
 
-local function setButton(b, label, n, ctxOK)
+local function sectionHits(entries)
+  local hits = 0
+  for _, entry in ipairs(entries or {}) do
+    if ui.searchMatch(entryName(entry), searchText) then hits = hits + 1 end
+  end
+  return hits
+end
+
+-- Header text: "Armor (3)", or "Armor (2/3)" while a search narrows
+-- the set, so collapsed groups still tell what they hold.
+local function paintHeaderLabel(r)
+  local n = #(r.entries or {})
+  if searchText ~= "" then
+    r.label:SetText(r.base .. " (" .. sectionHits(r.entries) .. "/" .. n .. ")")
+  else
+    r.label:SetText(r.base .. " (" .. n .. ")")
+  end
+end
+
+local function selectedWhere(pred)
+  local out = {}
+  for _, entry in ipairs(lastRanked) do
+    if selected[ui.entryKey(entry)] and pred(entry) then out[#out + 1] = entry end
+  end
+  return out
+end
+
+local function isDisenchant(e) return e.verdict == "disenchant" end
+
+-- Label, enabled state, and the hover title (UIPanelButtonMixin reads
+-- tooltipText; motion scripts stay on while disabled so the title
+-- explains why).
+local function setButton(b, label, n, ctxOK, tip)
   b:SetText(label .. " (" .. n .. ")")
+  b.tooltipText = tip
   if n > 0 and ctxOK then b:Enable() else b:Disable() end
 end
 
@@ -435,18 +581,45 @@ local function updateTexts()
     gold = gold + (entry.value or 0)
   end
   headerStats:SetText(items .. " items  •  " .. slots .. " slots  •  ~" .. ui.formatGold(gold))
-  headerSource:SetText("Source: " .. (ns.activeSource or "none"))
+  sourceText:SetText("Source: " .. (ns.activeSource or "none"))
   local t, g = lastTotals, lastTotals.groups
   local sel = "Selected: " .. t.items .. " items, " .. t.slots .. " slots, ~" .. ui.formatGold(t.gold)
   if lastKeeps > 0 then sel = sel .. " (+" .. lastKeeps .. " keeps)" end
   footer:SetText(sel)
-  footerGroups:SetText("use " .. (g.use or 0) .. "  •  sell " .. (g.sell or 0) .. "  •  disenchant " .. (g.disenchant or 0)
-    .. "  •  vendor " .. (g.vendor or 0) .. "  •  trash " .. ((g.trash or 0) + (g.destroy or 0)))
-  setButton(buttons.use, "Use", g.use or 0, true)
-  setButton(buttons.sell, "Sell", g.sell or 0, true)
-  setButton(buttons.disenchant, "Disenchant", g.disenchant or 0, true)
-  setButton(buttons.vendor, "Vendor", g.vendor or 0, merchantOpen)
-  setButton(buttons.trash, "Trash", (g.trash or 0) + (g.destroy or 0), true)
+  footerGroups:SetText("use " .. (g.use or 0) .. "  •  sell " .. (g.sell or 0)
+    .. "  •  disenchant " .. (g.disenchant or 0) .. "  •  vendor " .. (g.vendor or 0)
+    .. "  •  destroy " .. (g.destroy or 0))
+  setButton(buttons.use, "Use", g.use or 0, true, "Use the selected items")
+  setButton(buttons.sell, "Sell", g.sell or 0, true, "List the selected items (auction helper)")
+  -- Disenchant adapts (DESIGN 9): cast in person on an enchanter, else
+  -- mail to the configured one; what can go neither way is listed.
+  local ready, blocked = ui.dePartition(selectedWhere(isDisenchant), deInPerson)
+  local who = ns.config.get("enchanter") or ""
+  local note = ui.blockedNote(blocked)
+  local label, tip, ctxOK
+  if deInPerson then
+    label, ctxOK = "Disenchant", true
+    tip = "Disenchant the selected items in person, one per click"
+  elseif who == "" then
+    label, ctxOK = "Mail for DE", false
+    tip = "Set an enchanter first: /vw enchanter <name>"
+  else
+    label, ctxOK = "Mail for DE", true
+    tip = "Mail the selected items to " .. who
+  end
+  if note then tip = tip .. " (" .. note .. ")" end
+  setButton(buttons.disenchant, label, #ready, ctxOK, tip)
+  deNote:SetText(note or "")
+  deNote:SetShown(note ~= nil)
+  setButton(buttons.vendor, "Vendor", g.vendor or 0, merchantOpen,
+    merchantOpen and "Sell the selected items at a merchant" or "Vendor needs an open merchant window")
+  setButton(buttons.destroy, "Destroy", g.destroy or 0, true, "Destroy the selected items (with confirmation)")
+  -- The Actions group frames itself around the live selection
+  -- (DESIGN 8): narrow -> select -> act.
+  local nSel = t.slots + lastKeeps
+  actionLabel:SetText(nSel > 0 and ("Actions · " .. nSel .. " selected") or "Actions")
+  actionLabel:SetAlpha(nSel > 0 and 1 or 0.55)
+  actionHint:SetShown(nSel == 0)
 end
 
 local function expansionGetter()
@@ -464,21 +637,29 @@ local function updateHeaderPulse()
   for b in headPool:EnumerateActive() do
     local r = b._rec
     if r and r.entries and r.pulse then
-      local hit = false
-      if shut[r.key] and searchText ~= "" then
-        for _, entry in ipairs(r.entries) do
-          local link = entry.item.link or ""
-          if ui.searchMatch((link:match("%[(.-)%]") or link):lower(), searchText) then
-            hit = true
-            break
-          end
-        end
-      end
+      local hit = shut[r.key] and searchText ~= "" and sectionHits(r.entries) > 0
       if hit then r.pulse:Play() else r.pulse:Stop() end
     end
   end
 end
 
+-- "No matches for "x"" when a search finds nothing in a non-empty grid.
+local function updateSearchNote()
+  local noMatch = searchText ~= "" and #lastSections > 0
+  if noMatch then
+    for _, sec in ipairs(lastSections) do
+      if sectionHits(sec.entries) > 0 then noMatch = false break end
+    end
+  end
+  if noMatch then
+    noMatchNote:SetText("No matches for \"" .. searchBox:GetText() .. "\"")
+    noMatchNote:Show()
+  else
+    noMatchNote:Hide()
+  end
+end
+
+-- Search dims in place: no re-layout, headers relabel, hidden hits pulse.
 local function applySearch()
   if not iconPool then return end
   for b in iconPool:EnumerateActive() do
@@ -487,55 +668,51 @@ local function applySearch()
       r.button:SetAlpha(ui.searchMatch(r.searchName, searchText) and 1 or 0.35)
     end
   end
+  for b in headPool:EnumerateActive() do
+    if b._rec and b._rec.entries then paintHeaderLabel(b._rec) end
+  end
   updateHeaderPulse()
+  updateSearchNote()
 end
 
-local function updateSortButton(x)
+-- Sort cluster: the dropdown shows the mode, the arrow the direction.
+-- Arrow coords follow the auction house header (sorted vs reversed).
+local function refreshSort()
   local mode = ns.config.get("sortMode") or "off"
-  local rev = ns.config.get("sortReverse") and " (R)" or ""
-  sortBtn:SetText("Sort: " .. (SORT_LABEL[mode] or mode) .. rev)
-  sortBtn:ClearAllPoints()
-  sortBtn:SetPoint("TOPLEFT", window, "TOPLEFT", x, -76)
-  sortBtn:Show()
+  local reverse = ns.config.get("sortReverse") and true or false
+  if sortDrop then
+    if not (sortDrop.IsMenuOpen and sortDrop:IsMenuOpen()) then sortDrop:GenerateMenu() end
+  elseif sortBtn then
+    sortBtn:SetText("Sort: " .. (ui.SORT_LABEL[mode] or mode))
+  end
+  if reverse then sortArrow:SetTexCoord(0, 1, 0, 1) else sortArrow:SetTexCoord(0, 1, 1, 0) end
+  ns.theme.setPressed(sortDir, reverse)
 end
 
-local function refreshTabs()
-  local present, seen = { "all" }, { all = true }
-  for _, entry in ipairs(lastRanked) do
-    if not seen[entry.verdict] then
-      seen[entry.verdict] = true
-      present[#present + 1] = entry.verdict
-    end
+local function refreshFacets()
+  local present, counts = ui.facetCounts(lastRanked, ns.ranking.verdictOrder)
+  if not counts[filter] and filter ~= "all" then
+    -- A pre-selected filter (auto-open at a vendor) with nothing to show
+    -- still gets its row, so the empty grid is explained.
+    present[#present + 1] = filter
+    counts[filter] = 0
   end
-  local order = {}
-  for i, v in ipairs(ns.ranking.verdictOrder) do order[v] = i end
-  table.sort(present, function(a, b)
-    if a == "all" then return true end
-    if b == "all" then return false end
-    return (order[a] or 99) < (order[b] or 99)
-  end)
-  tabPool:ReleaseAll()
-  local x = 12
+  facetPool:ReleaseAll()
+  local y = FACET_Y
   for _, v in ipairs(present) do
-    local b = tabPool:Acquire()
-    if not b._rec then
-      b:SetHeight(20)
-      -- Tabs stay stock: upstream routes its own tabs through a
-      -- no-op skinner, even on Dark.
-      ns.theme.styleButton(b, true)
-      b._rec = true
-    end
-    local label = v == "all" and "All" or verdictLabel(v)
-    if v == filter then label = "[ " .. label .. " ]" end
-    b:SetText(label)
-    b:SetWidth(TAB_WIDTH[v] or 64)
-    b:ClearAllPoints()
-    b:SetPoint("TOPLEFT", window, "TOPLEFT", x, -76)
-    b:SetScript("OnClick", function() filter = v render(lastRanked) end)
-    b:Show()
-    x = x + (TAB_WIDTH[v] or 64) + 4
+    local r = acquireFacet()
+    r.verdict, r.n = v, counts[v]
+    r.name:SetText(v == "all" and "All" or verdictLabel(v))
+    r.count:SetText(counts[v])
+    local on = v == filter
+    r.active:SetShown(on)
+    r.bar:SetShown(on)
+    if on then r.count:SetTextColor(1, 0.82, 0) else r.count:SetTextColor(0.5, 0.5, 0.5) end
+    r.button:ClearAllPoints()
+    r.button:SetPoint("TOPLEFT", window, "TOPLEFT", SIDE_X, -y)
+    r.button:Show()
+    y = y + FACET_PITCH
   end
-  updateSortButton(x)
 end
 
 function render(ranked)
@@ -552,13 +729,13 @@ function render(ranked)
   for _, sec in ipairs(lastSections) do
     ui.sortEntries(sec.entries, sortMode, sortReverse)
     local h = acquireHeader()
-    h.key, h.entries = sec.key, sec.entries
+    h.key, h.entries, h.base = sec.key, sec.entries, sec.label
     h.button:ClearAllPoints()
     h.button:SetPoint("TOPLEFT", child, "TOPLEFT", 4, -y)
-    h.button:SetWidth(560)
+    h.button:SetWidth(HEAD_W)
     h.button:Show()
     local shut = collapsed[sec.key]
-    h.label:SetText(sec.label .. " (" .. #sec.entries .. ")")
+    paintHeaderLabel(h)
     h.toggle:SetTexture(shut and PLUS_TEX or MINUS_TEX)
     y = y + HEAD_H
     if not shut then
@@ -577,24 +754,18 @@ function render(ranked)
   child:SetHeight(math.max(y, 1))
   scroll:UpdateScrollChildRect()
   if #lastSections == 0 then emptyNote:Show() else emptyNote:Hide() end
-  refreshTabs()
+  refreshFacets()
+  refreshSort()
   updateHeaderPulse()
-  local active = groupMode == "category" and 1 or 2
-  groupButtons[1]:SetText(active == 1 and "[ Category ]" or "Category")
-  groupButtons[2]:SetText(active == 2 and "[ Expansion ]" or "Expansion")
+  updateSearchNote()
+  ns.theme.setPressed(groupButtons[1], groupMode == "category")
+  ns.theme.setPressed(groupButtons[2], groupMode == "expansion")
   lastQueued, lastTotals, lastKeeps = ui.computeSelection(lastRanked, selected)
   updateTexts()
 end
 
 -- Actions. Each runs from a button click (a hardware event), which is
 -- what makes the protected container calls legal. ------------------------
-local function selectedWhere(pred)
-  local out = {}
-  for _, entry in ipairs(lastRanked) do
-    if selected[ui.entryKey(entry)] and pred(entry) then out[#out + 1] = entry end
-  end
-  return out
-end
 
 -- Use consumes one-click collectables (caches, uncollected decor) from
 -- bags. Equippables never route here, but if a future rule slips one in,
@@ -644,10 +815,10 @@ function ui.vendorQueued(list)
   return n
 end
 
--- Disenchant mails to the enchanter. The footer button click is the
--- hardware event that makes the protected container calls legal.
--- Mail goes out in 12-item batches; anything that won't attach
--- (soulbound etc.) is put back and reported, never lost.
+-- Disenchant by mail goes to the enchanter named in settings. The
+-- button click is the hardware event that makes the protected container
+-- calls legal. Mail goes out in 12-item batches; anything that won't
+-- attach (soulbound etc.) is put back and reported, never lost.
 local MAIL_BATCH = 12
 
 local function atMailbox()
@@ -689,7 +860,7 @@ local function mailToEnchanter(who, items)
 end
 
 function ui.disenchantQueued(list)
-  list = list or selectedWhere(function(e) return e.verdict == "disenchant" end)
+  list = list or selectedWhere(isDisenchant)
   if #list == 0 then return 0 end
   local who = ns.config.get("enchanter")
   if not who or who == "" then
@@ -698,24 +869,64 @@ function ui.disenchantQueued(list)
     for _, entry in ipairs(list) do print("  " .. ui.linkName(entry.item.link)) end
     return #list
   end
-  local mailable = {}
-  for _, entry in ipairs(list) do
-    local item = entry.item
-    if item.scope == "bags" and type(item.bag) == "number" and type(item.slot) == "number" then
-      mailable[#mailable + 1] = item
-    end
-  end
-  if #mailable == 0 then
-    ns.say("nothing mailable — the disenchant queue is all bank/warbank items.")
+  local ready, blocked = ui.dePartition(list, false)
+  local note = ui.blockedNote(blocked)
+  if #ready == 0 then
+    ns.say("nothing mailable" .. (note and (" — " .. note) or "") .. ".")
     return 0
   end
+  local mailable = {}
+  for _, entry in ipairs(ready) do mailable[#mailable + 1] = entry.item end
   if not atMailbox() then
     ns.say("" .. #mailable .. " items ready for " .. who
-      .. " — open a mailbox to send them.")
+      .. " — open a mailbox to send them" .. (note and (" (" .. note .. ")") or "") .. ".")
     return #mailable
   end
   StaticPopup_Show("VOCWARBANK_CONFIRM_MAIL", #mailable, who, { who = who, items = mailable })
   return #mailable
+end
+
+-- In-person disenchant rides a secure action button: PreClick writes
+-- the next ready bag slot into a "/cast Disenchant" + "/use bag slot"
+-- macro (the same path Blizzard's own macros take, SlashCommands.lua
+-- CAST/USE -> CastSpellByName, C_Container.UseContainerItem), the
+-- template's own OnClick runs it, PostClick clears it. One item per
+-- click: a cast is in flight after each. Attributes cannot change in
+-- combat, so the click does nothing there and says so.
+local function armDisenchant(b, _, down)
+  if not deInPerson then return end
+  if InCombatLockdown() then
+    if down then ns.say("can't disenchant during combat.") end
+    return
+  end
+  local ready = ui.dePartition(selectedWhere(isDisenchant), true)
+  local first = ready[1]
+  if not first or not deSpellName then
+    b:SetAttribute("type", nil)
+    return
+  end
+  b:SetAttribute("type", "macro")
+  b:SetAttribute("macrotext", "/cast " .. deSpellName .. "\n/use " .. first.item.bag .. " " .. first.item.slot)
+end
+
+local function afterDisenchant(b, _, down)
+  if not InCombatLockdown() then b:SetAttribute("type", nil) end
+  if not deInPerson and not down then ui.disenchantQueued() end
+end
+
+-- An enchanter at the keyboard disenchants in person. Needs the secure
+-- button, Enchanting on this character, and the spell's localized name
+-- (nil when the client has no such spell).
+local function detectEnchanter()
+  if not deSecure then return false end
+  if not (ns.ranking.hasProfession and ns.ranking.hasProfession(ns.ranking.SKILL_ENCHANTING)) then
+    return false
+  end
+  if not (C_Spell and C_Spell.GetSpellName) then return false end
+  local ok, name = pcall(C_Spell.GetSpellName, DISENCHANT_SPELL)
+  if not ok or type(name) ~= "string" or name == "" then return false end
+  deSpellName = name
+  return true
 end
 
 function ui.sellQueued(list)
@@ -738,7 +949,7 @@ function ui.destroyQueued(list)
   local n, skipped, pending = 0, 0, false
   list = list or lastQueued
   for _, entry in ipairs(list) do
-    if entry.verdict == "trash" or entry.verdict == "destroy" then
+    if entry.verdict == "destroy" then
       local item = entry.item
       if item.scope ~= "bags" or type(item.bag) ~= "number" or type(item.slot) ~= "number" then
         skipped = skipped + 1
@@ -755,7 +966,7 @@ function ui.destroyQueued(list)
   end
   ui.rescan(true)
   if pending then
-    ns.say("paused for Blizzard's confirmation — click Trash again to continue"
+    ns.say("paused for Blizzard's confirmation — click Destroy again to continue"
       .. " (put the item back first if you cancelled).")
   elseif skipped > 0 then
     ns.say("destroyed " .. n .. ", skipped " .. skipped .. " outside bags.")
@@ -765,13 +976,13 @@ function ui.destroyQueued(list)
   return n
 end
 
-local function confirmTrash()
+local function confirmDestroy()
   local n = 0
   for _, entry in ipairs(lastQueued) do
-    if entry.verdict == "trash" or entry.verdict == "destroy" then n = n + 1 end
+    if entry.verdict == "destroy" then n = n + 1 end
   end
   if n == 0 then return end
-  StaticPopup_Show("VOCWARBANK_CONFIRM_TRASH", n)
+  StaticPopup_Show("VOCWARBANK_CONFIRM_DESTROY", n)
 end
 
 function ui.toggleKey(key)
@@ -853,6 +1064,7 @@ end
 function ui.rescan(keepSelection)
   if not window then ui.init() end
   merchantOpen = MerchantFrame and MerchantFrame:IsShown() or false
+  deInPerson = detectEnchanter()
   local provider = ns.providers.get()
   local ranked = ns.ranking.rank(ns.scanner.scan(ns.config.get("scope")))
   for _, entry in ipairs(ranked) do
@@ -872,6 +1084,99 @@ function ui.rescan(keepSelection)
   return ranked
 end
 
+-- Widget factories for init ----------------------------------------------
+
+-- Add a handler without clobbering one a template installed.
+local function addScript(frame, name, fn)
+  if frame:GetScript(name) then frame:HookScript(name, fn) else frame:SetScript(name, fn) end
+end
+
+local function sideLabel(text, y)
+  local fs = window:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+  fs:SetPoint("TOPLEFT", window, "TOPLEFT", SIDE_X, -y)
+  fs:SetText(text)
+  return fs
+end
+
+local function sideButton(text, y, width, x, onClick)
+  local b = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
+  b:SetSize(width or SIDE_W, 20)
+  b:SetPoint("TOPLEFT", window, "TOPLEFT", x or SIDE_X, -y)
+  b:SetText(text)
+  b:SetScript("OnClick", onClick)
+  ns.theme.styleButton(b)
+  return b
+end
+
+-- The sort dropdown (WowStyle1DropdownTemplate, Blizzard_Menu): radios
+-- per mode, the button text mirroring the selection. A client without
+-- the template keeps a cycling button instead.
+local function buildSortDropdown()
+  local ok, d = pcall(CreateFrame, "DropdownButton", nil, window, "WowStyle1DropdownTemplate")
+  if not (ok and d and d.SetupMenu) then return nil end
+  d:SetSize(120, 22)
+  d:SetPoint("TOPLEFT", window, "TOPLEFT", 516, -29)
+  if d.SetDefaultText then d:SetDefaultText("Sort: " .. ui.SORT_LABEL.off) end
+  if d.SetSelectionTranslator then
+    d:SetSelectionTranslator(function(selection) return "Sort: " .. tostring(selection.text or "") end)
+  end
+  d:SetupMenu(function(_, root)
+    for _, m in ipairs(ui.SORT_MODES) do
+      root:CreateRadio(ui.SORT_LABEL[m],
+        function() return (ns.config.get("sortMode") or "off") == m end,
+        function() ns.config.set("sortMode", m) render(lastRanked) end)
+    end
+  end)
+  addScript(d, "OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine("Sort items within each group")
+    GameTooltip:Show()
+  end)
+  addScript(d, "OnLeave", function() GameTooltip:Hide() end)
+  ns.theme.styleDropdown(d)
+  return d
+end
+
+local function buildSortCycleButton()
+  local b = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
+  b:SetSize(120, 20)
+  b:SetPoint("TOPLEFT", window, "TOPLEFT", 516, -30)
+  b:SetScript("OnClick", function()
+    local cur = ns.config.get("sortMode") or "off"
+    local nextMode = ui.SORT_MODES[1]
+    for i, m in ipairs(ui.SORT_MODES) do
+      if m == cur then nextMode = ui.SORT_MODES[i % #ui.SORT_MODES + 1] end
+    end
+    ns.config.set("sortMode", nextMode)
+    render(lastRanked)
+  end)
+  b.tooltipText = "Click: cycle sort"
+  ns.theme.styleButton(b)
+  return b
+end
+
+local function buildDisenchantButton(y)
+  local ok, b = pcall(CreateFrame, "Button", nil, window, "SecureActionButtonTemplate, UIPanelButtonTemplate")
+  deSecure = ok and b ~= nil and type(b.SetAttribute) == "function"
+  if not deSecure then
+    b = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
+  end
+  b:SetSize(SIDE_W, 22)
+  b:SetPoint("TOPLEFT", window, "TOPLEFT", SIDE_X, -y)
+  if deSecure then
+    -- Both edges registered: the template fires the action on the one
+    -- the ActionButtonUseKeyDown cvar picks (SecureTemplates.lua).
+    b:RegisterForClicks("AnyDown", "AnyUp")
+    b:SetScript("PreClick", armDisenchant)
+    b:SetScript("PostClick", afterDisenchant)
+  else
+    b:SetScript("OnClick", function() ui.disenchantQueued() end)
+  end
+  if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
+  ns.theme.styleButton(b)
+  return b
+end
+
 function ui.init()
   if window then return end
   window = CreateFrame("Frame", "VocWarbankWindow", UIParent, "BasicFrameTemplateWithInset")
@@ -885,37 +1190,31 @@ function ui.init()
   window:Hide()
   if UISpecialFrames then table.insert(UISpecialFrames, "VocWarbankWindow") end
   window.TitleText:SetText("VocWarbank")
-  closeBtn = CreateFrame("Button", nil, window, "UIPanelCloseButton")
-  closeBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -4, -4)
-  closeBtn:SetScript("OnClick", function() window:Hide() end)
-  headerStats = window:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  headerStats:SetPoint("TOPLEFT", window, "TOPLEFT", 16, -30)
-  headerSource = window:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  headerSource:SetPoint("TOPRIGHT", window, "TOPRIGHT", -44, -30)
-  local modes = { "category", "expansion" }
-  for i = 1, 2 do
-    local b = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
-    b:SetSize(i == 1 and 78 or 82, 20)
-    b:SetPoint("TOPLEFT", window, "TOPLEFT", i == 1 and 12 or 94, -52)
-    b:SetScript("OnClick", function() groupMode = modes[i] render(lastRanked) end)
-    ns.theme.styleButton(b)
-    groupButtons[i] = b
+  -- BasicFrameTemplate ships its own CloseButton (UIPanelTemplates.xml);
+  -- an older template without one gets a stock close button.
+  if not window.CloseButton then
+    local closeBtn = CreateFrame("Button", nil, window, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -4, -4)
+    closeBtn:SetScript("OnClick", function() window:Hide() end)
   end
-  local selBtn = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
-  selBtn:SetSize(100, 20)
-  selBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -134, -52)
-  selBtn:SetText("Select shown")
-  selBtn:SetScript("OnClick", function() ui.selectShown() end)
-  ns.theme.styleButton(selBtn)
-  local clrBtn = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
-  clrBtn:SetSize(60, 20)
-  clrBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -70, -52)
-  clrBtn:SetText("Clear")
-  clrBtn:SetScript("OnClick", function() ui.clearSelection() end)
-  ns.theme.styleButton(clrBtn)
+
+  -- Sidebar panel: tinted, with a divider against the content column.
+  side = CreateFrame("Frame", nil, window)
+  side:SetPoint("TOPLEFT", window, "TOPLEFT", 4, -24)
+  side:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", 4, 4)
+  side:SetWidth(188)
+  side.bg = side:CreateTexture(nil, "BACKGROUND")
+  side.bg:SetAllPoints()
+  side.divider = side:CreateTexture(nil, "BORDER")
+  side.divider:SetWidth(1)
+  side.divider:SetPoint("TOPRIGHT", side, "TOPRIGHT", 0, 0)
+  side.divider:SetPoint("BOTTOMRIGHT", side, "BOTTOMRIGHT", 0, 0)
+  ns.theme.styleSidebar(side)
+
+  -- Sidebar: search.
   searchBox = CreateFrame("EditBox", nil, window, "InputBoxTemplate")
-  searchBox:SetSize(190, 20)
-  searchBox:SetPoint("TOPLEFT", window, "TOPLEFT", 186, -52)
+  searchBox:SetSize(138, 20)
+  searchBox:SetPoint("TOPLEFT", window, "TOPLEFT", SIDE_X, -30)
   searchBox:SetAutoFocus(false)
   searchHint = window:CreateFontString(nil, "ARTWORK", "GameFontDisable")
   searchHint:SetPoint("LEFT", searchBox, "LEFT", 6, 0)
@@ -927,46 +1226,101 @@ function ui.init()
   end)
   searchBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   searchBox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-  searchClear = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
-  searchClear:SetSize(22, 20)
-  searchClear:SetPoint("TOPLEFT", window, "TOPLEFT", 380, -52)
-  searchClear:SetText("x")
-  searchClear:SetScript("OnClick", function() searchBox:SetText("") searchBox:ClearFocus() end)
-  ns.theme.styleButton(searchClear)
+  addScript(searchBox, "OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine("Find items by name — non-matches dim")
+    GameTooltip:Show()
+  end)
+  addScript(searchBox, "OnLeave", function() GameTooltip:Hide() end)
+  sideButton("x", 30, 22, 162, function() searchBox:SetText("") searchBox:ClearFocus() end)
   window:SetScript("OnHide", function()
     if searchBox:GetText() ~= "" then searchBox:SetText("") end
   end)
-  sortBtn = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
-  sortBtn:SetSize(124, 20)
-  sortBtn:RegisterForClicks("AnyUp")
-  sortBtn:SetScript("OnClick", function(_, button)
-    if button == "RightButton" then
-      ns.config.set("sortReverse", not ns.config.get("sortReverse"))
+
+  -- Sidebar: verdict facets (a button pool; rows are laid out per scan).
+  sideLabel("Verdict", 56)
+  facetPool = CreateObjectPool(function()
+    return CreateFrame("Button", nil, window)
+  end, poolReset)
+
+  -- Sidebar: group by.
+  sideLabel("Group by", 256)
+  local modes = { "category", "expansion" }
+  for i = 1, 2 do
+    local b = sideButton(i == 1 and "Category" or "Expansion", 276, 80, i == 1 and SIDE_X or 104,
+      function() groupMode = modes[i] render(lastRanked) end)
+    b.tooltipText = i == 1 and "Group by category" or "Group by expansion"
+    groupButtons[i] = b
+  end
+
+  -- Sidebar: selection.
+  sideLabel("Selection", 302)
+  sideButton("Select shown", 322, nil, nil, function() ui.selectShown() end)
+  sideButton("Clear", 346, nil, nil, function() ui.clearSelection() end)
+
+  -- Sidebar: actions, framed around the live selection.
+  actionLabel = sideLabel("Actions", 372)
+  actionHint = window:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  actionHint:SetPoint("TOPLEFT", window, "TOPLEFT", SIDE_X, -390)
+  actionHint:SetWidth(SIDE_W)
+  actionHint:SetJustifyH("LEFT")
+  actionHint:SetText("Select items to act on them.")
+  local defs = {
+    { "use", function() ui.useQueued() end },
+    { "sell", function() ui.sellQueued() end },
+    { "disenchant" },
+    { "vendor", function() ui.vendorQueued() end },
+    { "destroy", function() confirmDestroy() end },
+  }
+  for i, def in ipairs(defs) do
+    local y = ACTION_Y + (i - 1) * ACTION_PITCH
+    local b
+    if def[1] == "disenchant" then
+      b = buildDisenchantButton(y)
     else
-      local cur = ns.config.get("sortMode") or "off"
-      local nextMode = SORT_MODES[1]
-      for i, m in ipairs(SORT_MODES) do
-        if m == cur then nextMode = SORT_MODES[i % #SORT_MODES + 1] end
-      end
-      ns.config.set("sortMode", nextMode)
+      b = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
+      b:SetSize(SIDE_W, 22)
+      b:SetPoint("TOPLEFT", window, "TOPLEFT", SIDE_X, -y)
+      b:SetScript("OnClick", def[2])
+      if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
+      ns.theme.styleButton(b)
     end
+    buttons[def[1]] = b
+  end
+  deNote = window:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  deNote:SetPoint("TOPLEFT", window, "TOPLEFT", SIDE_X, -(ACTION_Y + #defs * ACTION_PITCH + 2))
+  deNote:SetWidth(SIDE_W)
+  deNote:SetJustifyH("LEFT")
+  deNote:Hide()
+  sourceText = window:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  sourceText:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", SIDE_X, 16)
+
+  -- Content: stats and the sort cluster.
+  headerStats = window:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  headerStats:SetPoint("TOPLEFT", window, "TOPLEFT", CONTENT_X, -30)
+  sortDir = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
+  sortDir:SetSize(24, 20)
+  sortDir:SetPoint("TOPLEFT", window, "TOPLEFT", 488, -30)
+  sortArrow = sortDir:CreateTexture(nil, "OVERLAY")
+  sortArrow:SetAtlas(SORT_ARROW_ATLAS, true)
+  sortArrow:SetPoint("CENTER", sortDir, "CENTER", 0, 0)
+  sortDir.tooltipText = "Reverse sort order"
+  sortDir:SetScript("OnClick", function()
+    ns.config.set("sortReverse", not ns.config.get("sortReverse"))
     render(lastRanked)
   end)
-  sortBtn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:AddLine("Left-click: cycle sort")
-    GameTooltip:AddLine("Right-click: reverse")
-    GameTooltip:Show()
-  end)
-  sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  ns.theme.styleButton(sortBtn)
-  -- Anonymous: nothing addresses it by name (the bar is reached via
-  -- scroll.ScrollBar), so it must not cost a global.
+  ns.theme.styleButton(sortDir)
+  sortDrop = buildSortDropdown()
+  if not sortDrop then sortBtn = buildSortCycleButton() end
+
+  -- Content: the grid. The scroll frame is anonymous: nothing addresses
+  -- it by name (the bar is reached via scroll.ScrollBar), so it must
+  -- not cost a global.
   scroll = CreateFrame("ScrollFrame", nil, window, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", window, "TOPLEFT", 12, -100)
+  scroll:SetPoint("TOPLEFT", window, "TOPLEFT", CONTENT_X, -56)
   scroll:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -30, 86)
   child = CreateFrame("Frame", nil, scroll)
-  child:SetWidth(580)
+  child:SetWidth(CHILD_W)
   child:SetHeight(1)
   scroll:SetScrollChild(child)
   iconPool = CreateObjectPool(function()
@@ -975,37 +1329,25 @@ function ui.init()
   headPool = CreateObjectPool(function()
     return CreateFrame("Button", nil, child)
   end, poolReset)
-  tabPool = CreateObjectPool(function()
-    return CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
-  end, poolReset)
   emptyNote = window:CreateFontString(nil, "ARTWORK", "GameFontDisable")
-  emptyNote:SetPoint("TOP", scroll, "TOP", 0, -40)
+  emptyNote:SetPoint("TOP", scroll, "TOP", 0, -120)
   emptyNote:SetText("No items match this filter.")
   emptyNote:Hide()
+  noMatchNote = window:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+  noMatchNote:SetPoint("TOP", scroll, "TOP", 0, -120)
+  noMatchNote:Hide()
+
+  -- Content: dry-run footer across the content column.
   footer = window:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  footer:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", 16, 64)
-  footer:SetWidth(620)
+  footer:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", CONTENT_X, 64)
+  footer:SetWidth(436)
   footer:SetJustifyH("LEFT")
   footerGroups = window:CreateFontString(nil, "ARTWORK", "GameFontDisable")
-  footerGroups:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", 16, 50)
-  footerGroups:SetWidth(620)
+  footerGroups:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", CONTENT_X, 50)
+  footerGroups:SetWidth(436)
   footerGroups:SetJustifyH("LEFT")
-  local defs = {
-    { "use", 16, function() ui.useQueued() end },
-    { "sell", 134, function() ui.sellQueued() end },
-    { "disenchant", 252, function() ui.disenchantQueued() end },
-    { "vendor", 370, function() ui.vendorQueued() end },
-    { "trash", 488, function() confirmTrash() end },
-  }
-  for _, def in ipairs(defs) do
-    local b = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
-    b:SetSize(112, 22)
-    b:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", def[2], 16)
-    b:SetScript("OnClick", def[3])
-    ns.theme.styleButton(b)
-    buttons[def[1]] = b
-  end
-  StaticPopupDialogs["VOCWARBANK_CONFIRM_TRASH"] = {
+
+  StaticPopupDialogs["VOCWARBANK_CONFIRM_DESTROY"] = {
     text = "Destroy %d queued items? This cannot be undone.",
     button1 = YES,
     button2 = NO,

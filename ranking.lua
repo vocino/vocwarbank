@@ -2,9 +2,16 @@ local _, ns = ...
 local ranking = {}
 ns.ranking = ranking
 
+-- Verdicts assess; the window's buttons operate. Dead quest items and
+-- anything else that should not exist land in "destroy" (one verdict,
+-- one button); "trash" would only collide with the vendor-trash grays.
 ranking.verdictOrder = {
-  "keep", "use", "sell", "disenchant", "vendor", "trash", "destroy",
+  "keep", "use", "sell", "disenchant", "vendor", "destroy",
 }
+
+-- Enchanting's skill line (GetProfessionInfo's 7th return), the
+-- profession that disenchants in person. Same table as the tool rule.
+ranking.SKILL_ENCHANTING = 333
 
 -- C_Item.GetItemInfo return positions.
 local Q_QUALITY, Q_EQUIPLOC = 3, 9
@@ -69,6 +76,12 @@ local function professionSkillIDs()
     end
   end
   return has
+end
+
+-- Live profession check for the window (the disenchant button adapts
+-- to an enchanter at the keyboard). Character-scoped, like the rules.
+function ranking.hasProfession(skillID)
+  return professionSkillIDs()[skillID] == true
 end
 
 local function marketValue(item, provider)
@@ -243,12 +256,12 @@ local function questTitleFromLink(link)
 end
 
 -- 11. Quest item -> keep, unless its quest is complete. Dead quest
--- items trash; anything unproven stays out of harm's way.
+-- items destroy; anything unproven stays out of harm's way.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
   if data.classID ~= CLASS_QUEST and data.bindType ~= BIND_QUEST then return nil end
   if completedTitles == nil then buildCompletedTitles() end
-  if questTitleFromLink(item.link) then return "trash", "quest complete" end
+  if questTitleFromLink(item.link) then return "destroy", "quest complete" end
   return "keep", "quest item"
 end
 

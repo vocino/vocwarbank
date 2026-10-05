@@ -9,6 +9,7 @@
 - `ranking.lua`: the verdict rules
 - `theme.lua`: Baganator Dark / stock looks
 - `ui.lua`: the triage window
+- `mock/triage.html`: the HTML design mock the window follows (dev only, never packaged)
 - `settings.lua`: native Settings panel (Settings > AddOns > VocWarbank)
 - `tests/`: headless tests (`lua tests/run.lua` from the repo root)
 - `SPEC.md`: the full spec

@@ -106,27 +106,40 @@ the verdict.
    -> SELL (auction house)
 10. Old-expansion uncommon or rare gear -> DISENCHANT (epics keep
    buyback through VENDOR instead)
-11. Quest item for a completed quest -> TRASH (dead quest item,
+11. Quest item for a completed quest -> DESTROY (dead quest item,
    quest-log lookup); other quest items -> KEEP
 12. Has a vendor price -> VENDOR
 13. Anything else -> KEEP ("needs review"; never destroy by default)
 
 ## The window
 
-- Header: item count, slots to free, estimated gold, active data
-  source.
-- Body: Baganator-style icon grid grouped by category or expansion,
-  sub-split on the other axis (Armor: The War Within). Never-sell
-  and always-sell lists pin to their own leading sections.
-  Icons show stack count, item level, quality border, and a verdict
-  dot; hover for name, value, and reason tag.
-- Selection: click icons or shift-click group headers to queue them. Verdict
-  filter tabs narrow the grid.
+Two columns, 660x640 (the design mock is `mock/triage.html`; the
+Lua follows it). Verdicts assess, buttons operate: the flow reads
+narrow -> select -> act, left to right.
+
+- Sidebar (left, tinted): search; the verdict facet list ("All" plus
+  every verdict the scan produced, each with its count, the active row
+  highlighted); Group by (Category / Expansion, the active one held
+  pressed); Selection (Select shown, Clear); Actions (a stack of
+  full-width buttons: Use, Sell, Disenchant, Vendor, Destroy, each
+  with its queued count); the active data source pinned at the bottom.
+- Content (right): stats line (item count, slots to free, estimated
+  gold); sort cluster (direction arrow plus a Sort dropdown: Bag
+  order / Quality / Value / Name); the Baganator-style icon grid
+  grouped by category or expansion, sub-split on the other axis
+  (Armor: The War Within). Never-sell and always-sell lists pin to
+  their own leading sections. Icons show stack count, item level,
+  quality border, and a verdict dot; hover for name, value, and
+  reason tag. The dry-run footer ("Selected: 142 items, 38 slots,
+  ~12,400g", then the per-verdict split) sits under the grid.
+- Selection: click icons or shift-click group headers to queue them.
+  The Actions label reads "Actions · N selected" live; with nothing
+  selected the group dims behind a hint.
 - The grid live-updates on inventory changes, preserving the queue.
-- Search dims non-matches in place; the sort button cycles
-  quality/value/name order (right-click reverses). Headers collapse
-  with a click; collapse and sort persist.
-- Footer: dry-run summary ("142 items, 38 slots, ~12,400g"), then per-group action buttons.
+- Search dims non-matches in place; headers show matches/total while
+  a search is active ("Armor (2/3)"), and collapsed headers holding
+  matches pulse. Headers collapse with a click; collapse, sort mode,
+  and direction persist.
 
 ## Looks
 
@@ -150,13 +163,22 @@ next scan; `/vw theme` reports the live look and any skin error.
 ## Actions
 
 - Use: consumes one-click items from bags (open caches, collect decor).
-- Vendor: sells at a merchant, keeps buyback intact.
-- Disenchant: one-click mail to the enchanter named in settings
-  (at a mailbox, with confirmation, 12 items per mail); without an
-  enchanter set, the queue is just listed.
+- Vendor: sells at a merchant, keeps buyback intact; the button
+  waits for an open merchant window and says so.
+- Disenchant adapts to who is at the keyboard. On an enchanter the
+  button reads "Disenchant" and casts in person, one item per click,
+  through a secure macro button (`/cast Disenchant` + `/use bag
+  slot`, the path Blizzard's own macros take; never in combat).
+  Otherwise it reads "Mail for DE": one-click mail to the enchanter
+  named in settings (at a mailbox, with confirmation, 12 items per
+  mail), disabled until an enchanter is set. Whatever can go neither
+  way is listed under the stack ("2 can't go: 1 soulbound, 1 stowed"):
+  soulbound items cannot be mailed, and bank or warbank items cannot
+  be targeted from the bag path.
 - Sell: hands off to TSM/Auctionator when present; otherwise flags
   for manual listing.
-- Trash: destroy with confirmation.
+- Destroy: with confirmation. Dead quest items rank here; there is no
+  separate "trash" verdict.
 
 ## Settings
 
