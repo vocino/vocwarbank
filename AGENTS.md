@@ -48,6 +48,8 @@ a local-checkout recipe: `FAMILY.md`, Sources of truth.
 VocWarbank is one of the Voc addons. Naming, slash grammar, chat
 voice, settings, layout, and docs follow `FAMILY.md`; that file is
 identical in every sibling repo, so edit it everywhere or not at all.
+Debugging follows `FAMILY.md` "Debugging": the `dbg` guest hook and
+the agent loop (`/vdbg mark`, `vocdebug since`).
 
 ## Namespace
 
