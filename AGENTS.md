@@ -50,6 +50,9 @@ voice, settings, layout, and docs follow `FAMILY.md`; that file is
 identical in every sibling repo, so edit it everywhere or not at all.
 Debugging follows `FAMILY.md` "Debugging": the `dbg` guest hook and
 the agent loop (`/vdbg mark`, `vocdebug since`).
+Craft follows the `voc-addons` skill, the source of truth for how Voc
+addons look, feel, and behave; load it before UI, settings, tooltip,
+sound, or visual-polish work.
 
 ## Namespace
 
