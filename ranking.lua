@@ -92,12 +92,16 @@ end
 local rules = {}
 
 -- 1. Appearance not collected -> keep. Only false keeps; nil (unknown)
--- falls through instead of guessing.
+-- falls through instead of guessing. Presence-gated: on a client
+-- without the transmog collection API the check is skipped, not guessed.
 rules[#rules + 1] = function(item, data, ctx)
   if not data then return nil end
   if data.classID ~= CLASS_WEAPON and data.classID ~= CLASS_ARMOR then return nil end
   if NO_APPEARANCE[data.equipLoc] then return nil end
-  if C_TransmogCollection.PlayerHasTransmog(item.itemID) == false then
+  local hasTxmog = C_TransmogCollection
+    and C_TransmogCollection.PlayerHasTransmog
+    and C_TransmogCollection.PlayerHasTransmog(item.itemID)
+  if hasTxmog == false then
     return "keep", "uncollected look"
   end
 end

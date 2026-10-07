@@ -1,0 +1,24 @@
+## Interface: 16001
+## Title: VocWarbank
+## Notes: Audit your warband bank, bank, and bags. Rank everything by usefulness, draw the line, clean house. (Forever client)
+## Author: vocino
+## Version: @project-version@
+## Category: Bags & Inventory
+## IconTexture: Interface\Icons\INV_Misc_Coin_01
+## SavedVariables: VocWarbankDB
+## OptionalDeps: Baganator, Syndicator, TradeSkillMaster, Auctionator, OribosExchange
+## X-Website: https://github.com/vocino/vocwarbank
+## X-License: MIT
+## X-Curse-Project-ID: 1724546
+## X-Wago-ID: qGYBeeNg
+
+config.lua
+providers.lua
+scanner.lua
+ranking.lua
+theme.lua
+queue.lua
+ui.lua
+handoff.lua
+settings.lua
+main.lua
