@@ -36,7 +36,6 @@ read_globals = {
   -- optional neighbors (presence-gated)
   "Auctionator", "OEMarketInfo", "Syndicator", "TSM_API",
   -- VocDebug guest hook (our own addon, not a Blizzard API)
-  "VOCDBG",
 }
 
 -- Tests install stubs onto _G by design.

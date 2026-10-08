@@ -2,8 +2,6 @@ local _, ns = ...
 local scanner = {}
 ns.scanner = scanner
 
--- VocDebug guest hook: silent no-op unless the debug addon is loaded.
-local dbg = VOCDBG or function() end
 
 -- container-agnostic. every scope yields item records:
 --   { link, itemID, count, bag, slot, scope, openable,
@@ -156,6 +154,5 @@ function scanner.scan(scope)
   if scope == "bags" or scope == "all" then scanBags(out) end
   if scope == "bank" or scope == "all" then scanBank(out) end
   if scope == "warbank" or scope == "all" then scanWarbank(out) end
-  dbg("vocwarbank", "scan_done", "scope=" .. tostring(scope) .. " items=" .. #out)
   return out
 end
