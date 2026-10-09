@@ -90,6 +90,7 @@ local function buildDialog()
   sellBtn:SetScript("OnClick", function() handoff.sell() end)
   if sellBtn.SetMotionScriptsWhileDisabled then sellBtn:SetMotionScriptsWhileDisabled(true) end
   ns.theme.styleButton(sellBtn)
+  ns.ui.confirm(sellBtn)
   laterBtn = CreateFrame("Button", nil, dialog, "UIPanelButtonTemplate")
   laterBtn:SetSize(80, 22)
   laterBtn:SetPoint("BOTTOMRIGHT", dialog, "BOTTOMRIGHT", -HW_MARGIN, 12)
@@ -97,6 +98,7 @@ local function buildDialog()
   laterBtn.tooltipText = "Close this dialog; the queue stays for next time"
   laterBtn:SetScript("OnClick", function() dialog:Hide() end)
   ns.theme.styleButton(laterBtn)
+  ns.ui.confirm(laterBtn)
   ns.theme.styleWindow(dialog)
 end
 
@@ -173,7 +175,7 @@ function handoff.sell()
   if left == 0 then handoff.hide()
   else handoff.refresh() end
   ns.say("sold " .. n .. " " .. (n == 1 and "stack" or "stacks")
-    .. (left > 0 and (" (" .. left .. " still queued)") or "") .. ".")
+    .. (left > 0 and (" (" .. left .. " still queued)") or ""))
 end
 
 -- Pop the dialog for an action. Docks beside the merchant, away from

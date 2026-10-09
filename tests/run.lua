@@ -10,9 +10,14 @@ local function check(name, cond)
   else fail = fail + 1 print("FAIL " .. name) end
 end
 
-local function loadAddon(file)
+-- Loads files into one namespace, in toc order; palette.lua always
+-- comes first, as it does in the client.
+local function loadAddon(...)
   local ns = mock.ns()
-  assert(loadfile(file))("VocWarbank", ns)
+  assert(loadfile("palette.lua"))("VocWarbank", ns)
+  for _, file in ipairs({ ... }) do
+    assert(loadfile(file))("VocWarbank", ns)
+  end
   return ns
 end
 
@@ -228,6 +233,69 @@ do
   print = realPrint
   check("say prefixes the addon name", said == "|c" .. mainNs.PREFIX_COLOR .. "VocWarbank|r: hello")
   check("family prefix color", mainNs.PREFIX_COLOR == "ff66ccff")
+end
+
+-- main.lua: the shared sound helper (SOUNDKIT names first, numeric
+-- fallback, silent without a sound API) and the compartment trio
+do
+  local played = {}
+  _G.PlaySound = function(id) played[#played + 1] = id end
+  _G.SOUNDKIT = nil
+  mainNs.play("open")
+  mainNs.play("off")
+  _G.SOUNDKIT = { IG_MAINMENU_OPEN = 1850 }
+  mainNs.play("open")
+  mainNs.play("bogus")
+  check("sound fallback then SOUNDKIT name", table.concat(played, ",") == "850,857,1850")
+  _G.PlaySound = nil
+  mainNs.play("open") -- no sound API: silent, never an error
+  check("no sound API is silent", #played == 3)
+  _G.SOUNDKIT = nil
+  local toggles = 0
+  mainNs.ui = { toggle = function() toggles = toggles + 1 end }
+  check("compartment globals", type(_G.VocWarbank_CompartmentClick) == "function"
+    and type(_G.VocWarbank_CompartmentEnter) == "function"
+    and type(_G.VocWarbank_CompartmentLeave) == "function")
+  _G.VocWarbank_CompartmentClick("VocWarbank", "LeftButton")
+  check("compartment click toggles the window", toggles == 1)
+  local tip = { lines = {} }
+  _G.GameTooltip = {
+    SetOwner = function(_, owner, anchor) tip.owner, tip.anchor = owner, anchor end,
+    SetText = function(_, t, tr, tg, tb) tip.title = t tip.titleColor = { tr, tg, tb } end,
+    AddLine = function(_, t) tip.lines[#tip.lines + 1] = t end,
+    Show = function() tip.shown = true end,
+    Hide = function() tip.shown = false end,
+  }
+  local btn = {}
+  _G.VocWarbank_CompartmentEnter("VocWarbank", btn)
+  check("compartment tooltip anchors to the button", tip.owner == btn and tip.shown == true)
+  check("compartment tooltip title is gold", tip.title == "VocWarbank"
+    and tip.titleColor[1] == 1 and tip.titleColor[2] == 0.82 and tip.titleColor[3] == 0)
+  check("compartment tooltip teaches the slash", #tip.lines == 2 and tip.lines[2]:find("/vw", 1, true) ~= nil)
+  _G.VocWarbank_CompartmentLeave("VocWarbank", btn)
+  check("compartment leave hides the tooltip", tip.shown == false)
+  _G.GameTooltip = nil
+  _G.VocWarbank_CompartmentEnter("VocWarbank", btn) -- no tooltip API: never an error
+  mainNs.ui = nil
+end
+
+-- palette.lua: every color has a name; rgb() spreads a token
+do
+  local pns = loadAddon()
+  local c = pns.COLORS
+  check("family tokens present", c.gold[1] == 1 and c.gold[2] == 0.82 and c.gold[3] == 0
+    and c.text and c.muted and c.red and c.green)
+  check("verdict colors cover every verdict", (function()
+    for _, v in ipairs({ "keep", "use", "sell", "disenchant", "vendor", "destroy" }) do
+      if type(c.verdict[v]) ~= "table" then return false end
+    end
+    return true
+  end)())
+  check("quality ladder 0-7", c.quality[0] ~= nil and c.quality[7] ~= nil)
+  local cr, cg, cb, ca = pns.rgb(c.gold, 0.5)
+  check("rgb spreads a token with alpha", cr == 1 and cg == 0.82 and cb == 0 and ca == 0.5)
+  cr, cg, cb, ca = pns.rgb(c.text)
+  check("rgb without alpha", cr == 1 and cg == 1 and cb == 1 and ca == nil)
 end
 
 -- config: the real module against a scratch SavedVariable

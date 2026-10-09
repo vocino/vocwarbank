@@ -128,8 +128,8 @@ local function bgrRest(b)
     b:SetBackdropColor(0, 0, 0, 0.1)
     b:SetBackdropBorderColor(0, 0, 0, 1)
   elseif b.vwPressed then
-    b:SetBackdropColor(1, 0.82, 0, 0.18)
-    b:SetBackdropBorderColor(1, 0.82, 0, 1)
+    b:SetBackdropColor(ns.rgb(ns.COLORS.gold, 0.18))
+    b:SetBackdropBorderColor(ns.rgb(ns.COLORS.gold, 1))
   else
     b:SetBackdropColor(0, 0, 0, 0.5)
     b:SetBackdropBorderColor(0, 0, 0, 1)
@@ -389,7 +389,7 @@ local function apply(style)
     current = "default"
     if not errorPrinted[style] then
       errorPrinted[style] = true
-      ns.say("the " .. style .. " look failed (" .. tostring(err) .. "); using stock. See /vw theme.")
+      ns.say("the " .. style .. " look failed (" .. tostring(err) .. "), using stock; see /vw theme")
     end
   end
   -- Look-independent state re-dressed for the new look.

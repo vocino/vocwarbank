@@ -2,7 +2,8 @@
 
 ## Code Map
 
-- `main.lua`: boot, slash command (`/vw`, `/vocwarbank`), chat voice (`ns.say`)
+- `palette.lua`: every color by name (loaded first; family tokens plus verdict and quality)
+- `main.lua`: boot, slash command (`/vw`, `/vocwarbank`), chat voice (`ns.say`), sounds (`ns.play`), the compartment entry
 - `config.lua`: settings defaults and repair, never/always-sell lists
 - `providers.lua`: price/expansion data layer behind one contract
 - `scanner.lua`: container-agnostic scan (warbank, bank, bags)
@@ -18,7 +19,8 @@
 - `FAMILY.md`: conventions shared by every Voc addon
 - `VERSIONING.md`: tag-driven semver releases (identical across the family)
 - `.luacheckrc`: lint config declaring the addon's globals
-- `.github`: `test.yml` (tests + lint) and `release.yml` (packager)
+- `VocWarbank.toc` / `VocWarbank_Forever.toc`: addon metadata (dual toc, same file list)
+- `.github`: `test.yml` (tests + lint + skill checks), `release.yml` (packager), `tag.yml` (cut a tag from anywhere)
 
 ## API references
 
@@ -26,8 +28,9 @@ Code targets the build in `## Interface:` of the `.toc`. Verify every
 WoW API fact against that build, in this order, and nothing else:
 
 1. Blizzard's own API docs for the build: `/api` in the client, or the
-   mirror at https://github.com/Gethe/wow-ui-source, branch `live`,
-   folder `Interface/AddOns/Blizzard_APIDocumentationGenerated/`.
+   mirror at https://github.com/Gethe/wow-ui-source, branch `live`
+   (and `forever` for the Forever client), folder
+   `Interface/AddOns/Blizzard_APIDocumentationGenerated/`.
    Names, namespaces, arguments, returns, and events come from here.
 2. Blizzard's UI source in the same mirror for templates, mixins, and
    `Blizzard_Deprecated*` (what is leaving, what replaces it).
@@ -46,7 +49,7 @@ a local-checkout recipe: `FAMILY.md`, Sources of truth.
 ## Family
 
 VocWarbank is one of the Voc addons. Naming, slash grammar, chat
-voice, settings, layout, and docs follow `FAMILY.md`; that file is
+voice, sounds, palette, settings, layout, and docs follow `FAMILY.md`; that file is
 identical in every sibling repo, so edit it everywhere or not at all.
 Debugging follows `FAMILY.md` "Debugging": !BugGrabber +
 BugSack, errors read from `!BugGrabber.lua` after `/reload`.
@@ -59,7 +62,8 @@ sound, or visual-polish work.
 Every global carries the `VocWarbank` prefix: frames
 (`VocWarbankWindow`), SavedVariables (`VocWarbankDB`), slash
 (`SLASH_VOCWARBANK*`), popups (`VOCWARBANK_*`), Settings variables
-(`VocWarbank_*`), chat (`VocWarbank:` via `ns.say`). Never introduce
+(`VocWarbank_*`), the compartment entry points
+(`VocWarbank_Compartment*`), chat (`VocWarbank:` via `ns.say`). Never introduce
 an unprefixed global; `luacheck .` enforces it.
 
 ## Tests

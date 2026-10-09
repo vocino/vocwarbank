@@ -30,17 +30,11 @@ local VERDICT_LABEL = {
   vendor = "Vendor", destroy = "Destroy", use = "Use",
 }
 
-local VERDICT_COLOR = {
-  keep = { 0.1, 0.9, 0.1 }, sell = { 1, 0.85, 0 },
-  disenchant = { 0.2, 0.6, 1 }, vendor = { 0.7, 0.7, 0.7 },
-  destroy = { 0.7, 0.1, 0.1 }, use = { 0.75, 0.5, 1 },
-}
-
-local QUALITY_COLOR = {
-  [0] = { 0.62, 0.62, 0.62 }, [1] = { 1, 1, 1 }, [2] = { 0.12, 1, 0 },
-  [3] = { 0, 0.44, 0.87 }, [4] = { 0.64, 0.21, 0.93 }, [5] = { 1, 0.5, 0 },
-  [6] = { 0.9, 0.8, 0.5 }, [7] = { 0, 0.8, 1 },
-}
+-- Colors come from palette.lua (loaded first); nothing here names an RGB.
+local COLORS = ns.COLORS
+local VERDICT_COLOR = COLORS.verdict
+local QUALITY_COLOR = COLORS.quality
+local rgb = ns.rgb
 
 local CATEGORY_LABEL = {
   [0] = "Consumables", [1] = "Containers", [2] = "Weapons", [3] = "Gems",
@@ -376,18 +370,18 @@ local function buildIcon(f)
   local sel = f:CreateTexture(nil, "BACKGROUND")
   sel:SetPoint("TOPLEFT", f, "TOPLEFT", -2, 2)
   sel:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 2, -2)
-  sel:SetColorTexture(1, 0.82, 0, 0.9)
+  sel:SetColorTexture(rgb(COLORS.gold, 0.9))
   sel:Hide()
   local bg = f:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints()
-  bg:SetColorTexture(0.5, 0.5, 0.5, 1)
+  bg:SetColorTexture(rgb(COLORS.muted, 1))
   -- Queued ring (DESIGN 10): gold, inset 1, created before the icon so
   -- it sits under it and reads as an inner edge on the quality plate.
   -- theme.paintQueued owns the on/off.
   local qr = f:CreateTexture(nil, "ARTWORK")
   qr:SetPoint("TOPLEFT", f, "TOPLEFT", 1, -1)
   qr:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
-  qr:SetColorTexture(1, 0.82, 0, 1)
+  qr:SetColorTexture(rgb(COLORS.gold, 1))
   qr:Hide()
   local icon = f:CreateTexture(nil, "ARTWORK")
   icon:SetPoint("TOPLEFT", f, "TOPLEFT", 2, -2)
@@ -414,13 +408,13 @@ local function buildIcon(f)
     else
       GameTooltip:SetText("Item " .. tostring(entry.item.itemID or "?"))
     end
-    GameTooltip:AddLine(verdictLabel(entry.verdict) .. " — " .. (entry.reason or ""), 1, 1, 1)
+    GameTooltip:AddLine(verdictLabel(entry.verdict) .. " — " .. (entry.reason or ""), rgb(COLORS.text))
     local queuedAction = ns.queue and ns.queue.queuedAs(entry)
     if queuedAction then
-      GameTooltip:AddLine("Queued: " .. verdictLabel(queuedAction), 1, 0.82, 0)
+      GameTooltip:AddLine("Queued: " .. verdictLabel(queuedAction), rgb(COLORS.gold))
     end
     if entry.value then
-      GameTooltip:AddLine("Value: " .. ui.formatGold(entry.value), 1, 1, 1)
+      GameTooltip:AddLine("Value: " .. ui.formatGold(entry.value), rgb(COLORS.text))
     end
     GameTooltip:Show()
   end)
@@ -470,6 +464,7 @@ local function buildHeader(f)
     else
       local collapsed = ns.config.get("collapsedGroups") or {}
       if collapsed[r.key] then collapsed[r.key] = nil else collapsed[r.key] = true end
+      ns.play(collapsed[r.key] and "off" or "on")
       render(lastRanked)
     end
   end)
@@ -494,15 +489,15 @@ local function buildFacet(b)
   b:SetSize(SIDE_W, 20)
   local active = b:CreateTexture(nil, "BACKGROUND")
   active:SetAllPoints()
-  active:SetColorTexture(1, 0.82, 0, 0.12)
+  active:SetColorTexture(rgb(COLORS.gold, 0.12))
   local bar = b:CreateTexture(nil, "BORDER")
   bar:SetWidth(2)
   bar:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
   bar:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
-  bar:SetColorTexture(1, 0.82, 0, 1)
+  bar:SetColorTexture(rgb(COLORS.gold, 1))
   local hover = b:CreateTexture(nil, "HIGHLIGHT")
   hover:SetAllPoints()
-  hover:SetColorTexture(1, 1, 1, 0.06)
+  hover:SetColorTexture(rgb(COLORS.text, 0.06))
   local name = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   name:SetPoint("LEFT", b, "LEFT", 8, 0)
   name:SetJustifyH("LEFT")
@@ -511,7 +506,7 @@ local function buildFacet(b)
   local r = { button = b, active = active, bar = bar, name = name, count = count, verdict = nil, n = 0 }
   b._rec = r
   b:SetScript("OnClick", function()
-    if r.verdict then filter = r.verdict render(lastRanked) end
+    if r.verdict then filter = r.verdict ns.play("on") render(lastRanked) end
   end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -736,7 +731,7 @@ local function refreshFacets()
     local on = v == filter
     r.active:SetShown(on)
     r.bar:SetShown(on)
-    if on then r.count:SetTextColor(1, 0.82, 0) else r.count:SetTextColor(0.5, 0.5, 0.5) end
+    if on then r.count:SetTextColor(rgb(COLORS.gold)) else r.count:SetTextColor(rgb(COLORS.muted)) end
     r.button:ClearAllPoints()
     r.button:SetPoint("TOPLEFT", window, "TOPLEFT", SIDE_X, -y)
     r.button:Show()
@@ -815,10 +810,10 @@ function ui.useQueued(list)
     end
   end
   if equippable > 0 then
-    ns.say("skipped " .. equippable .. " equippable items (using would bind them).")
+    ns.say("skipped " .. equippable .. " equippable items (using would bind them)")
   end
   if skipped > 0 then
-    ns.say("skipped " .. skipped .. " items outside bags (not supported yet).")
+    ns.say("skipped " .. skipped .. " items outside bags (not supported yet)")
   end
   ui.rescan(true)
   return n
@@ -832,17 +827,17 @@ function ui.queueVendor()
   local sel = selectedWhere(function(e) return e.verdict == "vendor" end)
   if #sel == 0 then
     if not ns.queue.empty("vendor") then
-      ns.say(ns.queue.count("vendor") .. " items queued for the vendor.")
+      ns.say(ns.queue.count("vendor") .. " items queued for the vendor")
     end
     return
   end
   local added, removed = ns.queue.toggle("vendor", sel)
   if added > 0 and removed > 0 then
-    ns.say("queued " .. added .. ", unqueued " .. removed .. " items.")
+    ns.say("queued " .. added .. ", unqueued " .. removed .. " items")
   elseif added > 0 then
-    ns.say("queued " .. added .. " items for the vendor.")
+    ns.say("queued " .. added .. " items for the vendor")
   elseif removed > 0 then
-    ns.say("unqueued " .. removed .. " items.")
+    ns.say("unqueued " .. removed .. " items")
   end
   if merchantOpen and ns.handoff then ns.handoff.show("vendor") end
   render(lastRanked)
@@ -862,7 +857,7 @@ function ui.vendorQueued(list)
     end
   end
   if skipped > 0 then
-    ns.say("skipped " .. skipped .. " items outside bags (not supported yet).")
+    ns.say("skipped " .. skipped .. " items outside bags (not supported yet)")
   end
   ui.rescan(true)
   return n
@@ -908,7 +903,7 @@ local function mailToEnchanter(who, items)
   end
   ui.rescan(true)
   ns.say("mailed " .. sent .. " items to " .. who
-    .. (skipped > 0 and " (skipped " .. skipped .. " unmailable)" or "") .. ".")
+    .. (skipped > 0 and " (skipped " .. skipped .. " unmailable)" or ""))
   return sent
 end
 
@@ -918,21 +913,21 @@ function ui.disenchantQueued(list)
   local who = ns.config.get("enchanter")
   if not who or who == "" then
     ns.say("" .. #list .. " items to disenchant — set your enchanter with"
-      .. " /vw enchanter <name>, or disenchant them directly.")
+      .. " /vw enchanter <name>, or disenchant them directly")
     for _, entry in ipairs(list) do print("  " .. ui.linkName(entry.item.link)) end
     return #list
   end
   local ready, blocked = ui.dePartition(list, false)
   local note = ui.blockedNote(blocked)
   if #ready == 0 then
-    ns.say("nothing mailable" .. (note and (" — " .. note) or "") .. ".")
+    ns.say("nothing mailable" .. (note and (" — " .. note) or ""))
     return 0
   end
   local mailable = {}
   for _, entry in ipairs(ready) do mailable[#mailable + 1] = entry.item end
   if not atMailbox() then
     ns.say("" .. #mailable .. " items ready for " .. who
-      .. " — open a mailbox to send them" .. (note and (" (" .. note .. ")") or "") .. ".")
+      .. " — open a mailbox to send them" .. (note and (" (" .. note .. ")") or ""))
     return #mailable
   end
   StaticPopup_Show("VOCWARBANK_CONFIRM_MAIL", #mailable, who, { who = who, items = mailable })
@@ -949,7 +944,7 @@ end
 local function armDisenchant(b, _, down)
   if not deInPerson then return end
   if InCombatLockdown() then
-    if down then ns.say("can't disenchant during combat.") end
+    if down then ns.say("can't disenchant during combat") end
     return
   end
   local ready = ui.dePartition(selectedWhere(isDisenchant), true)
@@ -990,9 +985,9 @@ function ui.sellQueued(list)
   elseif C_AddOns.IsAddOnLoaded("Auctionator") then helper = "Auctionator" end
   if helper then
     ns.say("" .. #list .. " items ready — list them in " .. helper
-      .. ". (Automatic handoff coming in a later version.)")
+      .. " (automatic handoff coming in a later version)")
   else
-    ns.say("" .. #list .. " items flagged for manual listing (no auction addon found).")
+    ns.say("" .. #list .. " items flagged for manual listing (no auction addon found)")
   end
   for _, entry in ipairs(list) do print("  " .. ui.linkName(entry.item.link)) end
   return #list
@@ -1020,11 +1015,11 @@ function ui.destroyQueued(list)
   ui.rescan(true)
   if pending then
     ns.say("paused for Blizzard's confirmation — click Destroy again to continue"
-      .. " (put the item back first if you cancelled).")
+      .. " (put the item back first if you cancelled)")
   elseif skipped > 0 then
-    ns.say("destroyed " .. n .. ", skipped " .. skipped .. " outside bags.")
+    ns.say("destroyed " .. n .. ", skipped " .. skipped .. " outside bags")
   else
-    ns.say("destroyed " .. n .. " items.")
+    ns.say("destroyed " .. n .. " items")
   end
   return n
 end
@@ -1038,9 +1033,12 @@ local function confirmDestroy()
   StaticPopup_Show("VOCWARBANK_CONFIRM_DESTROY", n)
 end
 
+-- Every interaction confirms (voc-addons principle 3): selecting is
+-- "on", deselecting "off", so the grid sounds like a row of checkboxes.
 function ui.toggleKey(key)
   if not key then return end
   if selected[key] then selected[key] = nil else selected[key] = true end
+  ns.play(selected[key] and "on" or "off")
   render(lastRanked)
 end
 
@@ -1054,6 +1052,7 @@ function ui.toggleSection(entries)
     if all then selected[ui.entryKey(entry)] = nil
     else selected[ui.entryKey(entry)] = true end
   end
+  ns.play(all and "off" or "on")
   render(lastRanked)
 end
 
@@ -1155,6 +1154,19 @@ local function addScript(frame, name, fn)
   if frame:GetScript(name) then frame:HookScript(name, fn) else frame:SetScript(name, fn) end
 end
 
+-- Stock UIPanelButtonTemplate plays nothing on click (SharedUIPanelTemplates:
+-- OnEnter/OnLeave only), so every button the window or the handoff
+-- dialog builds confirms here (voc-addons principle 3). A secure button
+-- registered for both edges fires OnClick on the way down and up; the
+-- up edge is the one that sounds, like every other button.
+function ui.confirm(b)
+  if not (b and b.HookScript) then return b end
+  b:HookScript("OnClick", function(_, _, down)
+    if not down then ns.play("on") end
+  end)
+  return b
+end
+
 local function sideLabel(text, y)
   local fs = window:CreateFontString(nil, "ARTWORK", "GameFontDisable")
   fs:SetPoint("TOPLEFT", window, "TOPLEFT", SIDE_X, -y)
@@ -1169,7 +1181,7 @@ local function sideButton(text, y, width, x, onClick)
   b:SetText(text)
   b:SetScript("OnClick", onClick)
   ns.theme.styleButton(b)
-  return b
+  return ui.confirm(b)
 end
 
 -- The sort dropdown (WowStyle1DropdownTemplate, Blizzard_Menu): radios
@@ -1216,7 +1228,7 @@ local function buildSortCycleButton()
   end)
   b.tooltipText = "Click: cycle sort"
   ns.theme.styleButton(b)
-  return b
+  return ui.confirm(b)
 end
 
 local function buildDisenchantButton(y)
@@ -1238,7 +1250,7 @@ local function buildDisenchantButton(y)
   end
   if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
   ns.theme.styleButton(b)
-  return b
+  return ui.confirm(b)
 end
 
 function ui.init()
@@ -1348,6 +1360,7 @@ function ui.init()
       b:SetScript("OnClick", def[2])
       if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
       ns.theme.styleButton(b)
+      ui.confirm(b)
     end
     buttons[def[1]] = b
   end
@@ -1374,6 +1387,7 @@ function ui.init()
     render(lastRanked)
   end)
   ns.theme.styleButton(sortDir)
+  ui.confirm(sortDir)
   sortDrop = buildSortDropdown()
   if not sortDrop then sortBtn = buildSortCycleButton() end
 
@@ -1509,10 +1523,18 @@ function ui.init()
   ns.theme.decide()
 end
 
+-- The one main action: open or close the window. Shared by the bare
+-- slash command and the addon compartment; either way it confirms.
 function ui.toggle()
   if not window then ui.init() end
-  if window:IsShown() then window:Hide()
-  else ui.rescan() window:Show() end
+  if window:IsShown() then
+    ns.play("close")
+    window:Hide()
+  else
+    ui.rescan()
+    ns.play("open")
+    window:Show()
+  end
 end
 
 function ui.isOpen()

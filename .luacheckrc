@@ -12,11 +12,13 @@ self = false
 unused_args = false
 exclude_files = { ".reference/**", "mock/**" }
 
--- Globals this addon owns: SavedVariables, slash registration, popups.
+-- Globals this addon owns: SavedVariables, slash registration, popups,
+-- and the addon compartment entry points named in the .toc.
 globals = {
   "VocWarbankDB",
   "SLASH_VOCWARBANK1", "SLASH_VOCWARBANK2",
   "SlashCmdList", "StaticPopupDialogs",
+  "VocWarbank_CompartmentClick", "VocWarbank_CompartmentEnter", "VocWarbank_CompartmentLeave",
 }
 
 -- WoW API and UI globals read by the addon.
@@ -29,13 +31,13 @@ read_globals = {
   "GameTooltip", "GetCursorInfo", "DeleteCursorItem", "GetExpansionLevel",
   "GetProfessionInfo", "GetProfessions", "InCombatLockdown", "IsShiftKeyDown", "PlayerHasToy",
   "Mixin", "BackdropTemplateMixin", "FramePool_HideAndClearAnchors", "Pool_HideAndClearAnchors",
+  "PlaySound", "SOUNDKIT", -- presence-gated; ns.play falls back to numeric IDs
   "Settings", "SettingsPanel", "StaticPopup_Show", "UIParent", "UISpecialFrames",
   "ITEM_QUALITY_COLORS", "YES", "NO",
   "MerchantFrame", "MailFrame", "AuctionHouseFrame",
   "ClickSendMailItemButton", "SendMailMailButton", "SendMailNameEditBox", "SendMailSubjectEditBox",
   -- optional neighbors (presence-gated)
   "Auctionator", "OEMarketInfo", "Syndicator", "TSM_API",
-  -- VocDebug guest hook (our own addon, not a Blizzard API)
 }
 
 -- Tests install stubs onto _G by design.
