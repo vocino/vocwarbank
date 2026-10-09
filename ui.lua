@@ -346,7 +346,10 @@ local actionLabel, actionHint, deNote
 local sortDrop, sortBtn, sortDir, sortArrow
 local searchBox, searchHint
 local searchText = ""
-local poolReset = FramePool_HideAndClearAnchors or Pool_HideAndClearAnchors
+-- Pool_HideAndClearAnchors (Blizzard_SharedXML/Pools.lua, live and
+-- forever); the older FramePool_HideAndClearAnchors name is defined on
+-- neither client and was dropped from the chain.
+local poolReset = Pool_HideAndClearAnchors
   or function(_, f) f:Hide() f:ClearAllPoints() end
 local groupButtons = {}
 local lastRanked, lastSections = {}, {}

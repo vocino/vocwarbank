@@ -30,7 +30,7 @@ read_globals = {
   "CreateFrame", "CreateObjectPool", "CreateSettingsListSectionHeaderInitializer",
   "GameTooltip", "GetCursorInfo", "DeleteCursorItem", "GetExpansionLevel",
   "GetProfessionInfo", "GetProfessions", "InCombatLockdown", "IsShiftKeyDown", "PlayerHasToy",
-  "Mixin", "BackdropTemplateMixin", "FramePool_HideAndClearAnchors", "Pool_HideAndClearAnchors",
+  "Mixin", "BackdropTemplateMixin", "Pool_HideAndClearAnchors",
   "PlaySound", "SOUNDKIT", -- presence-gated; ns.play falls back to numeric IDs
   "Settings", "SettingsPanel", "StaticPopup_Show", "UIParent", "UISpecialFrames",
   "ITEM_QUALITY_COLORS", "YES", "NO",
