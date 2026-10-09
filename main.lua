@@ -9,6 +9,48 @@ function ns.say(msg)
   print("|c" .. ns.PREFIX_COLOR .. name .. "|r: " .. tostring(msg))
 end
 
+-- Confirmation sounds shared by every Voc addon (FAMILY.md "Sounds"):
+-- SOUNDKIT names first, the numeric IDs behind them so a Blizzard
+-- rename never silences the polish. Presence-gated: no sound API, no
+-- sound, never an error.
+ns.SOUNDS = {
+  on = { "IG_MAINMENU_OPTION_CHECKBOX_ON", 856 },
+  off = { "IG_MAINMENU_OPTION_CHECKBOX_OFF", 857 },
+  open = { "IG_MAINMENU_OPEN", 850 },
+  close = { "IG_MAINMENU_CLOSE", 851 },
+}
+function ns.play(kind)
+  local s = ns.SOUNDS[kind]
+  if not s or type(PlaySound) ~= "function" then return end
+  local id = type(SOUNDKIT) == "table" and SOUNDKIT[s[1]] or nil
+  pcall(PlaySound, type(id) == "number" and id or s[2])
+end
+
+-- Addon compartment (FAMILY.md "Addon compartment"): the toc names
+-- these three globals; Blizzard's compartment menu calls them with
+-- (addonName, button). The click does what the bare slash does (open
+-- or close the window); hover follows the tooltip contract: gold
+-- title, one line, the slash hint.
+function VocWarbank_CompartmentClick()
+  ns.ui.toggle()
+end
+
+function VocWarbank_CompartmentEnter(_, button)
+  if type(GameTooltip) ~= "table" then return end
+  local c = ns.COLORS
+  GameTooltip:SetOwner(button, "ANCHOR_LEFT")
+  GameTooltip:SetText("VocWarbank", c.gold[1], c.gold[2], c.gold[3])
+  GameTooltip:AddLine("Audits your warband bank, bank, and bags: ranks everything, you draw the line.",
+    c.text[1], c.text[2], c.text[3], true)
+  GameTooltip:AddLine("/vw opens the window. /vw help lists the rest.",
+    c.muted[1], c.muted[2], c.muted[3], true)
+  GameTooltip:Show()
+end
+
+function VocWarbank_CompartmentLeave()
+  if type(GameTooltip) == "table" then GameTooltip:Hide() end
+end
+
 local boot = CreateFrame("Frame")
 boot:RegisterEvent("ADDON_LOADED")
 boot:RegisterEvent("PLAYER_LOGIN")
@@ -83,11 +125,11 @@ local function auto(rest)
   if rest == "" then
     ns.say("auto-open at vendors is "
       .. (ns.config.get("autoOpenVendor") and "ON" or "off")
-      .. ", at the auction house " .. (ns.config.get("autoOpenAuction") and "ON" or "off") .. ".")
+      .. ", at the auction house " .. (ns.config.get("autoOpenAuction") and "ON" or "off"))
   elseif key and (val == "on" or val == "off") then
     ns.config.set(key, val == "on")
     ns.say("auto-open " .. (key == "autoOpenVendor" and "at vendors" or "at the auction house")
-      .. " " .. (val == "on" and "enabled." or "disabled."))
+      .. " " .. (val == "on" and "enabled" or "disabled"))
   else
     ns.say("usage: /vw auto <vendor|auction> <on|off>")
   end
@@ -95,13 +137,13 @@ end
 
 local function pin(which, rest, on)
   local id = ns.config.parseItemID(rest)
-  if not id then ns.say("give an item link or ID.") return end
+  if not id then ns.say("give an item link or ID") return end
   ns.config.setListItem(which, id, on)
   refresh()
   if which == "neverSell" then
-    ns.say("item " .. id .. (on and " will always be kept." or " removed from never-sell."))
+    ns.say("item " .. id .. (on and " will always be kept" or " removed from never-sell"))
   else
-    ns.say("item " .. id .. (on and " will always sell." or " removed from always-sell."))
+    ns.say("item " .. id .. (on and " will always sell" or " removed from always-sell"))
   end
 end
 
@@ -115,7 +157,7 @@ local function queueCmd(rest)
   sub, arg = (sub or ""):lower(), (arg or ""):lower()
   if sub == "" and arg == "" then
     local actions = ns.queue.actions()
-    if #actions == 0 then ns.say("nothing queued.") return end
+    if #actions == 0 then ns.say("nothing queued") return end
     for _, action in ipairs(actions) do
       ns.say(action .. " (" .. ns.queue.count(action) .. " queued):")
       for _, row in ipairs(ns.queue.list(action)) do
@@ -127,7 +169,7 @@ local function queueCmd(rest)
   elseif sub == "clear" and (arg == "" or queueActions[arg]) then
     ns.queue.clear(arg == "" and nil or arg)
     refresh()
-    ns.say(arg == "" and "queue cleared." or (arg .. " queue cleared."))
+    ns.say(arg == "" and "queue cleared" or (arg .. " queue cleared"))
   else
     ns.say("usage: /vw queue [clear [action]]")
   end
@@ -153,26 +195,26 @@ SlashCmdList.VOCWARBANK = function(msg)
     ns.config.set("priceSource", arg)
     ns.providers.init()
     refresh()
-    ns.say("price source set to " .. arg .. ".")
+    ns.say("price source set to " .. arg)
   elseif cmd == "inventory" and inventorySources[arg] then
     ns.config.set("inventorySource", arg)
     refresh()
-    ns.say("warbank source set to " .. arg .. ".")
+    ns.say("warbank source set to " .. arg)
   elseif cmd == "scope" and scopeValues[arg] then
     ns.config.set("scope", arg)
     refresh()
-    ns.say("scope set to " .. arg .. ".")
+    ns.say("scope set to " .. arg)
   elseif cmd == "threshold" and tonumber(rest) and tonumber(rest) > 0 then
     ns.config.set("ahThreshold", math.floor(tonumber(rest) * 10000))
     refresh()
-    ns.say("auction threshold set to " .. rest .. "g.")
+    ns.say("auction threshold set to " .. rest .. "g")
   elseif cmd == "enchanter" and rest ~= "" then
     ns.config.set("enchanter", rest)
-    ns.say("enchanter set to " .. rest .. ".")
+    ns.say("enchanter set to " .. rest)
   elseif cmd == "tsmkey" and rest ~= "" then
     ns.config.set("tsmKey", rest)
     refresh()
-    ns.say("TSM price key set to " .. rest .. ".")
+    ns.say("TSM price key set to " .. rest)
   elseif cmd == "never" or cmd == "unnever" then
     pin("neverSell", rest, cmd == "never")
   elseif cmd == "always" or cmd == "unalways" then

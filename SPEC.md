@@ -47,12 +47,15 @@ Two layers. The UI never talks to third-party addons directly.
 
 ```
 VocWarbank/
-  main.lua      boot, slash command
+  palette.lua   every color by name, loaded first
+  main.lua      boot, slash command, sounds, compartment entry
   config.lua    settings, never/always-sell lists
   providers.lua data layer behind one contract (Data)
   scanner.lua   container-agnostic item scan
   ranking.lua   verdict rules (Core)
+  queue.lua     persisted action queues
   ui.lua        the triage window (UI)
+  handoff.lua   the merchant handoff dialog
   theme.lua     Baganator Dark / stock looks
   settings.lua  options panel
   tests/        headless tests (lua tests/run.lua)
@@ -164,7 +167,10 @@ One window, two looks, picked live by theme.lua:
   Baganator's own Blizzard skin looks like.
 
 Quality and verdict colors stay ours in every look — they are
-data, not chrome. Looks re-resolve on every scan. A failed look
+data, not chrome, and they live in `palette.lua` beside the family
+tokens; no file paints an RGB at a call site. Every control confirms
+with a Blizzard sound (open/close for the window, the checkbox pair
+for selection and collapse, a click for every button). Looks re-resolve on every scan. A failed look
 falls back to stock, says so once in chat, and retries on the
 next scan; `/vw theme` reports the live look and any skin error.
 
@@ -218,7 +224,8 @@ The panel ends with a pointer to `/vw help`.
 
 ## Slash
 
-`/vw` and `/vocwarbank`. The bare command opens or closes the window;
+`/vw` and `/vocwarbank`, and the addon compartment on the minimap
+does what the bare command does. The bare command opens or closes the window;
 `/vw help` lists every subcommand; anything unrecognized prints help
 and never acts. Chat lines carry the family's colored `VocWarbank:`
 prefix via `ns.say`.

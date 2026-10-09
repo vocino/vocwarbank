@@ -13,12 +13,14 @@ Download the latest zip from [GitHub
 Releases](https://github.com/vocino/vocwarbank/releases) (also on
 CurseForge and Wago), copy the folder into `Interface/AddOns`, and
 make sure it is named `VocWarbank` (the folder name must match the
-`.toc` file).
+`.toc` file). The same package runs on Retail and on the Forever
+client.
 
 ## Use
 
-Open the window, pick a scope, and browse the icon grid grouped by
-category or expansion. The sidebar narrows (search, verdict facets
+Open the window (`/vw`, or the addon compartment on the minimap),
+pick a scope, and browse the icon grid grouped by category or
+expansion. The sidebar narrows (search, verdict facets
 with counts), the grid selects (click icons, shift-click headers),
 and the action stack acts: Use, Sell, Disenchant, Vendor, Destroy,
 each showing how many are queued, with a dry-run summary under the
@@ -38,6 +40,8 @@ queue to the enchanter you name.
 /vw tsmkey <key>                    TSM price key (default DBMarket)
 /vw never|unnever <item>            pin or unpin a never-sell item
 /vw always|unalways <item>          pin or unpin an always-sell item
+/vw queue                           list queued handoff items
+/vw queue clear [action]            drop queued items
 /vw auto <vendor|auction> <on|off>  auto-open at vendors or the AH
 /vw theme                           report the active look
 /vw config                          open Settings > AddOns > VocWarbank
@@ -69,14 +73,18 @@ the ranking rules and the full design.
 
 ## What's inside
 
-- `main.lua`: boot, slash command, chat voice
+- `palette.lua`: every color the window paints, by name
+- `main.lua`: boot, slash command, chat voice, sounds, the compartment entry
 - `config.lua`: settings defaults and repair, never/always-sell lists
 - `providers.lua`: data layer behind one contract
 - `scanner.lua`: container-agnostic item scan
 - `ranking.lua`: the verdict rules
+- `queue.lua`: persisted action queues, re-resolved at handoff
 - `ui.lua`: the triage window
+- `handoff.lua`: the merchant handoff dialog
 - `theme.lua`: matches Baganator Dark when present
 - `settings.lua`: native Settings panel
+- `VocWarbank.toc` / `VocWarbank_Forever.toc`: metadata for Retail and the Forever client
 - `SPEC.md`: the full spec
 - `tests/`: headless tests with stubbed WoW APIs
 
@@ -94,5 +102,7 @@ MIT
 ---
 
 Part of the Voc family: tiny addons that do one job.
-Siblings: [VocWarbank](https://github.com/vocino/vocwarbank) ·
-[VocGear](https://github.com/vocino/vocgear)
+[VocWarbank](https://github.com/vocino/vocwarbank) ·
+[VocGear](https://github.com/vocino/vocgear) ·
+[VocXP](https://github.com/vocino/vocxp) ·
+[VocVendor](https://github.com/vocino/vocvendor)

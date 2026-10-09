@@ -1,6 +1,7 @@
 package-as: VocWarbank
 
 ignore:
+  - .agents
   - .github
   - .luacheckrc
   - tests
