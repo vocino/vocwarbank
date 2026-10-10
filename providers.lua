@@ -22,12 +22,13 @@ local function parseItemID(link, itemID)
   return itemID or (link and tonumber(link:match("item:(%d+)")) or nil)
 end
 
--- Vendor sell price. Always available; ends every cascade.
+-- Vendor sell price. Presence-gated: no C_Item, no prices, never an error.
 providers.register("vendor", {
   label = "Vendor prices",
-  available = function() return true end,
+  available = function() return type(C_Item) == "table" end,
   fetch = function(link, itemID)
     if not link then return nil end
+    if type(C_Item) ~= "table" then return nil end
     return select(11, C_Item.GetItemInfo(link))
   end,
 })
@@ -121,6 +122,7 @@ local expansionKeys = {
 
 local function getExpansion(itemID)
   if not itemID then return nil end
+  if type(C_Item) ~= "table" then return nil end
   local expansionID = select(15, C_Item.GetItemInfo(itemID))
   return expansionID and expansionKeys[expansionID] or nil
 end
