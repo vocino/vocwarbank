@@ -1016,6 +1016,7 @@ function ui.destroyQueued(list)
     end
   end
   ui.rescan(true)
+  if n > 0 or pending then ns.play("on") end
   if pending then
     ns.say("paused for Blizzard's confirmation — click Destroy again to continue"
       .. " (put the item back first if you cancelled)")

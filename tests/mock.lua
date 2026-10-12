@@ -57,6 +57,12 @@ function mock.ns()
     config = {
       get = function(k) return mock.cfg[k] end,
       set = function(k, v) mock.cfg[k] = v end,
+      valid = {
+        priceSource = { auto = true, vendor = true, auctionator = true, tsm = true, oribos = true },
+        inventorySource = { auto = true, blizzard = true, syndicator = true },
+        scope = { warbank = true, bank = true, bags = true, all = true },
+        sortMode = { off = true, quality = true, value = true, name = true },
+      },
       parseItemID = function(s)
         if not s or s == "" then return nil end
         return tonumber(s) or tonumber(tostring(s):match("item:(%d+)"))

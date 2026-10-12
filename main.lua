@@ -59,10 +59,10 @@ boot:SetScript("OnEvent", function(_, event, addon)
     if addon ~= name then return end
     if type(VocWarbankDB) ~= "table" then VocWarbankDB = {} end
     ns.db = VocWarbankDB
-    ns.config.init()
-    ns.providers.init()
-    ns.ui.init()
-    ns.settings.init()
+    for _, mod in ipairs({ "config", "providers", "ui", "settings" }) do
+      local ok, err = pcall(function() ns[mod].init() end)
+      if not ok then ns.say(mod .. " failed to load: " .. tostring(err)) end
+    end
     boot:UnregisterEvent("ADDON_LOADED")
   else
     ns.settings.init() -- in case the Settings API wasn't up at ADDON_LOADED
@@ -96,9 +96,7 @@ function ns.help()
   for _, line in ipairs(ns.HELP) do print("  " .. line) end
 end
 
-local priceSources = { auto = true, vendor = true, auctionator = true, tsm = true, oribos = true }
-local inventorySources = { auto = true, blizzard = true, syndicator = true }
-local scopeValues = { warbank = true, bank = true, bags = true, all = true }
+-- Valid values live on ns.config.valid (config.lua); the slash reads them there.
 
 -- Settings changed under an open window apply immediately.
 local function refresh()
@@ -191,16 +189,16 @@ SlashCmdList.VOCWARBANK = function(msg)
     ns.settings.open()
   elseif cmd == "theme" then
     theme()
-  elseif cmd == "source" and priceSources[arg] then
+  elseif cmd == "source" and ns.config.valid.priceSource[arg] then
     ns.config.set("priceSource", arg)
     ns.providers.init()
     refresh()
     ns.say("price source set to " .. arg)
-  elseif cmd == "inventory" and inventorySources[arg] then
+  elseif cmd == "inventory" and ns.config.valid.inventorySource[arg] then
     ns.config.set("inventorySource", arg)
     refresh()
     ns.say("warbank source set to " .. arg)
-  elseif cmd == "scope" and scopeValues[arg] then
+  elseif cmd == "scope" and ns.config.valid.scope[arg] then
     ns.config.set("scope", arg)
     refresh()
     ns.say("scope set to " .. arg)

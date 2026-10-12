@@ -726,5 +726,80 @@ do
     bogusLines - clearLines == 1 and qprinted[bogusLines]:find("usage:") ~= nil)
 end
 
+-- config.valid: the slash validates against config's single enum table
+do
+  local cns = loadConfig({})
+  check("config.valid exposes price sources",
+    cns.config.valid.priceSource.auto and cns.config.valid.priceSource.tsm
+    and cns.config.valid.priceSource.ebay == nil)
+  check("config.valid exposes scopes",
+    cns.config.valid.scope.bags and cns.config.valid.scope.all
+    and cns.config.valid.scope.everywhere == nil)
+end
+
+-- main.lua: an invalid enum value falls through to help (via config.valid)
+do
+  mock.reset()
+  local vns = loadAddon("main.lua")
+  vns.providers.init = function() end
+  vns.ui = { isOpen = function() return false end, rescan = function() end }
+  local vprinted = {}
+  local savedPrint = print
+  print = function(s) vprinted[#vprinted + 1] = s end
+  _G.SlashCmdList.VOCWARBANK("source ebay")
+  print = savedPrint
+  check("bad price source prints help", #vprinted == 1 + #vns.HELP)
+end
+
+-- main.lua: the addon compartment (FAMILY.md "Addon compartment")
+do
+  local cns = mock.ns()
+  assert(loadfile("palette.lua"))("VocWarbank", cns)
+  assert(loadfile("main.lua"))("VocWarbank", cns)
+  check("compartment click defined", type(_G.VocWarbank_CompartmentClick) == "function")
+  check("compartment enter/leave defined",
+    type(_G.VocWarbank_CompartmentEnter) == "function"
+    and type(_G.VocWarbank_CompartmentLeave) == "function")
+  local toggles = 0
+  cns.ui = { toggle = function() toggles = toggles + 1 end }
+  _G.VocWarbank_CompartmentClick()
+  check("compartment click toggles the window", toggles == 1)
+  local tip = { lines = {} }
+  _G.GameTooltip = {
+    SetOwner = function(_, owner) tip.owner = owner end,
+    SetText = function(_, text, r, g, b) tip.text, tip.r, tip.g, tip.b = text, r, g, b end,
+    AddLine = function(_, text) tip.lines[#tip.lines + 1] = text end,
+    Show = function() tip.shown = true end,
+    Hide = function() tip.shown = false end,
+  }
+  local btn = {}
+  _G.VocWarbank_CompartmentEnter("VocWarbank", btn)
+  check("compartment tooltip anchors with a gold title",
+    tip.owner == btn and tip.text == "VocWarbank" and tip.r == 1 and tip.g == 0.82 and tip.shown == true)
+  check("compartment tooltip names the job and the slash", #tip.lines == 2
+    and tip.lines[2]:find("/vw", 1, true) ~= nil)
+  _G.VocWarbank_CompartmentLeave()
+  check("compartment leave hides the tooltip", tip.shown == false)
+  _G.GameTooltip = nil
+end
+
+-- main.lua: ns.play is presence-gated (FAMILY.md "Sounds")
+do
+  local pns = mock.ns()
+  assert(loadfile("palette.lua"))("VocWarbank", pns)
+  assert(loadfile("main.lua"))("VocWarbank", pns)
+  _G.PlaySound, _G.SOUNDKIT = nil, nil
+  check("play without PlaySound is silent", pcall(pns.play, "on") == true)
+  check("play with unknown kind is silent", pcall(pns.play, "bogus") == true)
+  local played = {}
+  _G.PlaySound = function(id) played[#played + 1] = id end
+  pns.play("on")
+  check("play falls back to the numeric ID", played[1] == 856)
+  _G.SOUNDKIT = { IG_MAINMENU_OPTION_CHECKBOX_ON = 99123 }
+  pns.play("on")
+  check("play prefers the SOUNDKIT name", played[2] == 99123)
+  _G.PlaySound, _G.SOUNDKIT = nil, nil
+end
+
 print(string.format("%d passed, %d failed", pass, fail))
 os.exit(fail > 0 and 1 or 0)
