@@ -760,14 +760,14 @@ do
   check("compartment enter/leave defined",
     type(_G.VocWarbank_CompartmentEnter) == "function"
     and type(_G.VocWarbank_CompartmentLeave) == "function")
-  local toggles = 0
-  cns.ui = { toggle = function() toggles = toggles + 1 end }
+  local compToggles = 0
+  cns.ui = { toggle = function() compToggles = compToggles + 1 end }
   _G.VocWarbank_CompartmentClick()
-  check("compartment click toggles the window", toggles == 1)
+  check("compartment click toggles the window", compToggles == 1)
   local tip = { lines = {} }
   _G.GameTooltip = {
     SetOwner = function(_, owner) tip.owner = owner end,
-    SetText = function(_, text, r, g, b) tip.text, tip.r, tip.g, tip.b = text, r, g, b end,
+    SetText = function(_, text, cr, cg, cb) tip.text, tip.r, tip.g, tip.b = text, cr, cg, cb end,
     AddLine = function(_, text) tip.lines[#tip.lines + 1] = text end,
     Show = function() tip.shown = true end,
     Hide = function() tip.shown = false end,
