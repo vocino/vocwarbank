@@ -26,6 +26,8 @@ local enums = {
   sortMode = { off = true, quality = true, value = true, name = true },
 }
 
+config.valid = enums -- the slash line validates against this; declared once
+
 local function fresh(value)
   if type(value) ~= "table" then return value end
   local copy = {}
