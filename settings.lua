@@ -141,6 +141,8 @@ function settings.init()
     "Pop the window up beside the merchant, filtered to Vendor.")
   checkbox("autoOpenAuction", "Open automatically at the auction house",
     "Pop the window up beside the auction house.")
+  checkbox("gatekeeper", "Nudge on below-the-line deposits",
+    "When the bank closes, flag anything newly stored that falls below the keep line.")
   note("More on the slash line: /vw help")
 end
 

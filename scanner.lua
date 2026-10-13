@@ -43,6 +43,9 @@ local function scanBank(out)
   end
   local bagIndex = Enum and Enum.BagIndex or nil
   if bagIndex then
+    -- 12.1.5 tab model; legacy names below as fallback. add() dedupes,
+    -- dead IDs resolve to 0 slots and contribute nothing.
+    for i = 1, 6 do add(bagIndex["CharacterBankTab_" .. i]) end
     add(bagIndex.Bank)
     for i = 1, 7 do add(bagIndex["BankBag_" .. i]) end
     add(bagIndex.Reagentbank)

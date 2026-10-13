@@ -1,11 +1,14 @@
 # VocWarbank
 
-Every expansion leaves junk in your warbank: old reagents, dead
-quest items, gear with no purpose. VocWarbank scans your warband
-bank, bank, or bags, ranks everything by usefulness, and lets you
-draw the line. Everything below it gets vendored, disenchanted,
-mailed, or destroyed. You confirm every action; it never sells or
-destroys anything on its own.
+VocWarbank keeps your bank current. Years of expansions leave a
+mishmash in the warbank: old reagents, dead quest items, gear with no
+purpose. The cleanout loop fixes it: Empty withdraws the bank into
+your bags (in waves, as space allows), the ranker splits keepers from
+junk, Deposit puts the keepers back, and the rest gets vendored,
+disenchanted, mailed, or destroyed. From then on the gatekeeper holds
+the bar: anything below the line that gets deposited earns a nudge.
+The end state is a bank with nothing old in it. You confirm every
+action; it never sells or destroys anything on its own.
 
 ## Install
 

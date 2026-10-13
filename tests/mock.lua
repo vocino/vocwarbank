@@ -21,6 +21,8 @@ function mock.reset()
   mock.decor = {}            -- itemID -> true (consumable decor)
   mock.prices = {}           -- itemID -> copper
   mock.bags = {}             -- bagID -> { [slot] = { link, count, ... } }
+  mock.bagSizes = {}         -- bagID -> slot count (defaults to max used slot)
+  mock.cursor = nil          -- held item { link, count } or nil
   mock.expansionLevel = 11   -- midnight
   mock.cfg = {
     neverSell = {}, alwaysSell = {}, queue = {},
@@ -184,6 +186,7 @@ function mock.install()
 
   _G.C_Container = {
     GetContainerNumSlots = function(bag)
+      if mock.bagSizes[bag] then return mock.bagSizes[bag] end
       local b = mock.bags[bag]
       if not b then return 0 end
       local n = 0
@@ -200,7 +203,23 @@ function mock.install()
       return { stackCount = s.count or 1, hasLoot = s.openable,
                quality = s.quality, iconFileID = s.icon, isBound = s.bound }
     end,
+    -- Scripted move: lift onto the cursor, or drop/swap from it.
+    PickupContainerItem = function(bag, slot)
+      mock.bags[bag] = mock.bags[bag] or {}
+      if mock.cursor then
+        local held = mock.cursor
+        mock.cursor = nil
+        local occupant = mock.bags[bag][slot]
+        mock.bags[bag][slot] = held
+        if occupant then mock.cursor = occupant end
+      else
+        mock.cursor = mock.bags[bag][slot]
+        mock.bags[bag][slot] = nil
+      end
+    end,
   }
+
+  _G.CursorHasItem = function() return mock.cursor ~= nil end
 
   _G.CreateFrame = function(ftype, name)
     if ftype == "GameTooltip" then return mock.tooltip(name) end

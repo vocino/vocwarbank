@@ -344,6 +344,7 @@ local iconPool, headPool, facetPool -- CreateObjectPools, built in init
 local buttons = {}                  -- action buttons by verdict
 local actionLabel, actionHint, deNote
 local sortDrop, sortBtn, sortDir, sortArrow
+local emptyBtn -- cleanout: withdraw the bank scope into bags
 local searchBox, searchHint
 local searchText = ""
 -- Pool_HideAndClearAnchors (Blizzard_SharedXML/Pools.lua, live and
@@ -606,6 +607,23 @@ local function updateTexts()
   footerGroups:SetText("use " .. (g.use or 0) .. "  •  sell " .. (g.sell or 0)
     .. "  •  disenchant " .. (g.disenchant or 0) .. "  •  vendor " .. (g.vendor or 0)
     .. "  •  destroy " .. (g.destroy or 0))
+  -- Deposit is the cleanout loop's second half: keepers go back to the
+  -- bank they came from. Bags scope only; the bank must be open.
+  local scope = ns.config.get("scope")
+  local depositOK = scope == "bags" and ns.mover.bankOpen
+  setButton(buttons.deposit, "Deposit", lastKeeps, depositOK,
+    "Deposit the selected keepers back to the bank")
+  -- Empty shows on bank scopes only, and needs the bank open to read.
+  if emptyBtn then
+    local isBankScope = scope == "bank" or scope == "warbank"
+    emptyBtn:SetShown(isBankScope)
+    if isBankScope then
+      local label = scope == "warbank" and "Empty warbank" or "Empty bank"
+      emptyBtn:SetText(label)
+      emptyBtn.tooltipText = "Withdraw everything into bags, in waves as space allows"
+      if ns.mover.bankOpen then emptyBtn:Enable() else emptyBtn:Disable() end
+    end
+  end
   setButton(buttons.use, "Use", g.use or 0, true, "Use the selected items")
   setButton(buttons.sell, "Sell", g.sell or 0, true, "List the selected items (auction helper)")
   -- Disenchant adapts (DESIGN 9): cast in person on an enchanter, else
@@ -996,8 +1014,19 @@ function ui.sellQueued(list)
   return #list
 end
 
-function ui.destroyQueued(list)
-  local n, skipped, pending = 0, 0, false
+-- Deposit the selected keep-verdict items back into the bank scope
+-- they came from (the Empty origin, defaulting to the warbank). The
+-- cleanout loop's second half: the ranker already split keepers from
+-- junk, so this is one click, not a decision.
+function ui.depositKeeps(list)
+  list = list or selectedWhere(function(e) return e.verdict == "keep" end)
+  if #list == 0 then return 0 end
+  local n = ns.mover.deposit(list)
+  ui.rescan(true)
+  return n
+end
+
+function ui.destroyQueued(list)  local n, skipped, pending = 0, 0, false
   list = list or lastQueued
   for _, entry in ipairs(list) do
     if entry.verdict == "destroy" then
@@ -1346,6 +1375,7 @@ function ui.init()
   actionHint:SetJustifyH("LEFT")
   actionHint:SetText("Select items to act on them.")
   local defs = {
+    { "deposit", function() ui.depositKeeps() end },
     { "use", function() ui.useQueued() end },
     { "sell", function() ui.sellQueued() end },
     { "disenchant" },
@@ -1394,6 +1424,20 @@ function ui.init()
   ui.confirm(sortDir)
   sortDrop = buildSortDropdown()
   if not sortDrop then sortBtn = buildSortCycleButton() end
+
+  -- Empty: the cleanout loop's first half. Withdraws everything movable
+  -- from the bank scope into bags, in waves as space allows. Bank and
+  -- warbank scopes only; hidden elsewhere.
+  emptyBtn = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
+  emptyBtn:SetSize(110, 20)
+  emptyBtn:SetPoint("TOPLEFT", window, "TOPLEFT", 524, -30)
+  emptyBtn:SetScript("OnClick", function()
+    ns.mover.withdraw(ns.config.get("scope"))
+    ui.rescan(true)
+  end)
+  if emptyBtn.SetMotionScriptsWhileDisabled then emptyBtn:SetMotionScriptsWhileDisabled(true) end
+  ns.theme.styleButton(emptyBtn)
+  ui.confirm(emptyBtn)
 
   -- Content: the grid. The scroll frame is anonymous: nothing addresses
   -- it by name (the bar is reached via scroll.ScrollBar), so it must

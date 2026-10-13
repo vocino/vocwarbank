@@ -26,6 +26,23 @@ Every expansion leaves junk in the warband bank: old reagents, dead
 quest items, gear with no purpose. Nothing triages it. You either
 eyeball hundreds of slots or never clean at all.
 
+## The one job
+
+Currency triage: is this item for the game you're playing right now?
+Not organization, not sorting, not categories -- that's Baganator's
+lane. VocWarbank's promise: a bank with nothing old in it.
+
+The cleanout loop:
+
+1. Empty: withdraw the bank scope into bags, in waves as space
+   allows. One click per wave; stops cleanly when bags fill.
+2. Sort: the ranker splits keepers from junk on the bags scope.
+3. Deposit: keepers go back to the bank they came from, one click.
+   The rest gets vendored, disenchanted, mailed, or destroyed.
+
+The gatekeeper holds the bar afterward: on bank close, anything
+newly stored below the keep line earns a chat nudge.
+
 ## Non-goals
 
 - Not a bag addon. Not an auction addon.
@@ -198,6 +215,14 @@ next scan; `/vw theme` reports the live look and any skin error.
   for manual listing.
 - Destroy: with confirmation. Dead quest items rank here; there is no
   separate "trash" verdict.
+- Empty: bank/warbank scopes only. Withdraws everything movable into
+  bags, in waves as space allows; each wave reports moved and left.
+  Every move runs inside the click handler (the hardware event that
+  makes protected container calls legal); a dirty cursor or combat
+  aborts the run.
+- Deposit: bags scope only. Moves selected keep-verdict items back to
+  the emptied scope (default warbank). The gatekeeper never trips on
+  these: keep-verdict deposits are above the line by definition.
 
 ## Settings
 
