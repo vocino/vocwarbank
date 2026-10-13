@@ -24,11 +24,11 @@ globals = {
 -- WoW API and UI globals read by the addon.
 read_globals = {
   "_G",
-  "C_AddOns", "C_Container", "C_EquipmentSet", "C_Item",
+  "C_AddOns", "C_Bank", "C_Container", "C_Cursor", "C_EquipmentSet", "C_Item",
   "C_MountJournal", "C_PetJournal", "C_QuestLog", "C_Spell", "C_Timer", "C_ToyBox",
   "C_TransmogCollection", "Enum",
   "CreateFrame", "CreateObjectPool", "CreateSettingsListSectionHeaderInitializer",
-  "GameTooltip", "GetCursorInfo", "DeleteCursorItem", "GetExpansionLevel",
+  "GameTooltip", "GetCursorInfo", "CursorHasItem", "DeleteCursorItem", "GetExpansionLevel",
   "GetProfessionInfo", "GetProfessions", "InCombatLockdown", "IsShiftKeyDown", "PlayerHasToy",
   "Mixin", "BackdropTemplateMixin", "Pool_HideAndClearAnchors",
   "PlaySound", "SOUNDKIT", -- presence-gated; ns.play falls back to numeric IDs

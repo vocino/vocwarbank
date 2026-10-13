@@ -8,6 +8,7 @@ local defaults = {
   tsmKey = "DBMarket",       -- TSM price source expression
   enchanter = "",            -- character to mail disenchantables to
   ahThreshold = 100000,      -- copper; above this, SELL beats VENDOR
+  gatekeeper = true,         -- nudge when below-the-line items get deposited
   neverSell = {},            -- itemID -> true
   alwaysSell = {},           -- itemID -> true
   scope = "bags",            -- warbank | bank | bags | all

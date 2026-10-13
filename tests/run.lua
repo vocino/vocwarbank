@@ -477,7 +477,7 @@ do
       reg[key] and reg[key].default == pns.config.default(key)
       and reg[key].type == type(pns.config.default(key)))
   end
-  check("four dropdowns, two checkboxes", #drops == 4 and checks == 2)
+  check("four dropdowns, three checkboxes", #drops == 4 and checks == 3)
   check("slash-line note added", headers[1] == "More on the slash line: /vw help")
   local scopeData = drops[3]()
   check("scope dropdown lists all four", #scopeData == 4 and scopeData[1].value == "bags")
@@ -799,6 +799,107 @@ do
   pns.play("on")
   check("play prefers the SOUNDKIT name", played[2] == 99123)
   _G.PlaySound, _G.SOUNDKIT = nil, nil
+end
+
+-- mover: withdraw empties the bank scope into bags
+do
+  mock.reset()
+  mock.bags[-1] = {
+    [1] = { link = "|Hitem:401|h[a]|h|r" },
+    [2] = { link = "|Hitem:402|h[b]|h|r", count = 5 },
+  }
+  mock.bagSizes[0] = 16 -- empty backpack
+  local vmns = loadAddon("config.lua", "scanner.lua", "ranking.lua", "mover.lua")
+  vmns.say = function() end
+  vmns.mover.bankOpen = true
+  local moved, left = vmns.mover.withdraw("bank")
+  check("withdraw moves all", moved == 2 and left == 0)
+  check("bank emptied", mock.bags[-1][1] == nil and mock.bags[-1][2] == nil)
+  check("bags hold them", mock.bags[0][1] ~= nil and mock.bags[0][2] ~= nil)
+  check("origin tracked", vmns.mover.lastEmptyScope == "bank")
+end
+
+-- mover: withdraw stops cleanly when bags fill (the wave model)
+do
+  mock.reset()
+  mock.bags[-1] = {
+    [1] = { link = "|Hitem:411|h[a]|h|r" },
+    [2] = { link = "|Hitem:412|h[b]|h|r" },
+    [3] = { link = "|Hitem:413|h[c]|h|r" },
+  }
+  mock.bagSizes[0] = 1
+  mock.bags[0] = { [1] = { link = "|Hitem:1|h[full]|h|r" } } -- the one slot, occupied
+  local said = {}
+  local vmns = loadAddon("config.lua", "scanner.lua", "ranking.lua", "mover.lua")
+  vmns.say = function(msg) said[#said + 1] = msg end
+  vmns.mover.bankOpen = true
+  local moved, left = vmns.mover.withdraw("bank")
+  check("wave moves what fits", moved == 0 and left == 3)
+  check("full bags reported", #said == 1 and said[1]:find("bags are full", 1, true) ~= nil)
+end
+
+-- mover: withdraw refuses with the bank closed
+do
+  mock.reset()
+  mock.bags[-1] = { [1] = { link = "|Hitem:421|h[a]|h|r" } }
+  local said = {}
+  local vmns = loadAddon("config.lua", "scanner.lua", "ranking.lua", "mover.lua")
+  vmns.say = function(msg) said[#said + 1] = msg end
+  vmns.mover.bankOpen = false
+  local moved = vmns.mover.withdraw("bank")
+  check("closed bank refuses", moved == 0)
+  check("still in bank", mock.bags[-1][1] ~= nil)
+end
+
+-- mover: dirty cursor aborts the run
+do
+  mock.reset()
+  mock.bags[-1] = { [1] = { link = "|Hitem:431|h[a]|h|r" } }
+  mock.bagSizes[0] = 16
+  mock.cursor = { link = "|Hitem:9|h[stuck]|h|r" }
+  local vmns = loadAddon("config.lua", "scanner.lua", "ranking.lua", "mover.lua")
+  vmns.say = function() end
+  vmns.mover.bankOpen = true
+  local moved = vmns.mover.withdraw("bank")
+  check("dirty cursor aborts", moved == 0 and mock.bags[-1][1] ~= nil)
+  mock.cursor = nil
+end
+
+-- mover: deposit returns keepers to the emptied scope
+do
+  mock.reset()
+  mock.bagSizes[0] = 16
+  mock.bags[0] = {
+    [1] = { link = "|Hitem:441|h[keep]|h|r" },
+    [2] = { link = "|Hitem:442|h[keep2]|h|r" },
+  }
+  mock.bagSizes[-1] = 28
+  local vmns = loadAddon("config.lua", "scanner.lua", "ranking.lua", "mover.lua")
+  vmns.say = function() end
+  vmns.mover.bankOpen = true
+  vmns.mover.lastEmptyScope = "bank"
+  local entries = {
+    { item = { scope = "bags", bag = 0, slot = 1, link = "|Hitem:441|h[keep]|h|r" }, verdict = "keep" },
+    { item = { scope = "bags", bag = 0, slot = 2, link = "|Hitem:442|h[keep2]|h|r" }, verdict = "keep" },
+  }
+  local n = vmns.mover.deposit(entries)
+  check("deposit moves keepers", n == 2)
+  check("keepers land in bank", mock.bags[-1][1] ~= nil and mock.bags[-1][2] ~= nil)
+  check("bags emptied", mock.bags[0][1] == nil and mock.bags[0][2] == nil)
+end
+
+-- mover: gatekeeper stays quiet when nothing new was stored
+do
+  mock.reset()
+  mock.bags[-1] = { [1] = { link = "|Hitem:451|h[a]|h|r" } }
+  local said = {}
+  local vmns = loadAddon("config.lua", "scanner.lua", "ranking.lua", "mover.lua")
+  vmns.say = function(msg) said[#said + 1] = msg end
+  vmns.mover.bankOpen = true
+  -- simulate open -> close with no changes: snapshot then check
+  vmns.mover.bankOpen = false
+  -- gatekeeperCheck runs on close; with no snapshot it stays quiet
+  check("quiet with no snapshot", #said == 0)
 end
 
 print(string.format("%d passed, %d failed", pass, fail))

@@ -22,6 +22,7 @@ scanner.lua
 ranking.lua
 theme.lua
 queue.lua
+mover.lua
 ui.lua
 handoff.lua
 settings.lua
