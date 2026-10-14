@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: VocWarbank
 ## Notes: Audit your warband bank, bank, and bags. Rank everything by usefulness, draw the line, clean house. (/vw)
 ## Author: vocino
