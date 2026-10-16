@@ -87,7 +87,7 @@ the ranking rules and the full design.
 - `handoff.lua`: the merchant handoff dialog
 - `theme.lua`: matches Baganator Dark when present
 - `settings.lua`: native Settings panel
-- `VocWarbank.toc` / `VocWarbank_Forever.toc`: metadata for Retail and the Forever client
+- `VocWarbank.toc` / `VocWarbank_Camelot.toc`: metadata for Retail and the Forever client
 - `SPEC.md`: the full spec
 - `tests/`: headless tests with stubbed WoW APIs
 

@@ -19,7 +19,7 @@
 - `FAMILY.md`: conventions shared by every Voc addon
 - `VERSIONING.md`: tag-driven semver releases (identical across the family)
 - `.luacheckrc`: lint config declaring the addon's globals
-- `VocWarbank.toc` / `VocWarbank_Forever.toc`: addon metadata (dual toc, same file list)
+- `VocWarbank.toc` / `VocWarbank_Camelot.toc`: addon metadata (dual toc, same file list)
 - `.github`: `test.yml` (tests + lint + skill checks), `release.yml` (packager), `tag.yml` (cut a tag from anywhere)
 
 ## API references
