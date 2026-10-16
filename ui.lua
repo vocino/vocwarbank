@@ -123,7 +123,7 @@ function ui.searchMatch(nameLower, query)
 end
 
 -- Deterministic in-section sort. mode is off/quality/value/name;
--- reverse flips the comparator but keeps the stability tiebreak.
+-- reverse inverts the order, ties included (bag order still breaks them).
 function ui.sortEntries(entries, mode, reverse)
   mode = mode or "off"
   local pos, names = {}, {}
@@ -154,15 +154,13 @@ function ui.sortEntries(entries, mode, reverse)
     if names[a] ~= names[b] then return names[a] < names[b] end
     return pos[a] < pos[b]
   end
-  if reverse then
-    table.sort(entries, function(a, b)
-      if ordered(a, b) then return false end
-      if ordered(b, a) then return true end
-      return pos[a] < pos[b]
-    end)
-  else
-    table.sort(entries, function(a, b) return ordered(a, b) end)
-  end
+  -- One comparator for both directions: ordered() already decides
+  -- every pair (bag order is the final tiebreak), so reverse just asks
+  -- the same question with the arguments swapped.
+  table.sort(entries, function(a, b)
+    if reverse then return ordered(b, a) end
+    return ordered(a, b)
+  end)
   return entries
 end
 
@@ -179,13 +177,14 @@ function ui.buildSections(ranked, mode, getExpansion, filter, pins)
     if key == "other" then return 1e9 end
     return rank[key] or 1e8
   end
-  local mains, seen = {}, {}
+  -- Buckets in first-seen order; at breaks rank ties deterministically.
+  local buckets, order = {}, {}
   local function bucket(key)
-    local b = mains[key]
+    local b = buckets[key]
     if not b then
-      b = { key = key, entries = {} }
-      mains[key] = b
-      seen[#seen + 1] = key
+      b = { key = key, entries = {}, at = #order + 1 }
+      buckets[key] = b
+      order[#order + 1] = b
     end
     return b
   end
@@ -200,19 +199,17 @@ function ui.buildSections(ranked, mode, getExpansion, filter, pins)
       b.entries[#b.entries + 1] = entry
     end
   end
-  local seenAt = {}
-  for i, key in ipairs(seen) do seenAt[key] = i end
-  table.sort(seen, function(a, b)
-    local ra, rb = sortKey(a), sortKey(b)
+  table.sort(order, function(a, b)
+    local ra, rb = sortKey(a.key), sortKey(b.key)
     if ra ~= rb then return ra < rb end
-    return seenAt[a] < seenAt[b]
+    return a.at < b.at
   end)
   local subOrder = mode == "expansion" and CATEGORY_ORDER or EXP_ORDER
   local subRank = {}
   for i, key in ipairs(subOrder) do subRank[key] = i end
   local sections = {}
-  for _, key in ipairs(seen) do
-    local main = mains[key]
+  for _, main in ipairs(order) do
+    local key = main.key
     local label
     if key == "pinned:never" then label = "Never Sell"
     elseif key == "pinned:always" then label = "Always Sell"
@@ -223,23 +220,29 @@ function ui.buildSections(ranked, mode, getExpansion, filter, pins)
       sections[#sections + 1] = { key = mode .. ":" .. tostring(key), label = label, entries = main.entries }
     else
       -- Sub-split on the other axis when it actually divides the group.
-      local subs, subSeen = {}, {}
+      -- Same shape as the main buckets above: each sub carries its
+      -- first-seen index, so no side table is needed for the tiebreak.
+      local subs, subSeq = {}, {}
       for _, entry in ipairs(main.entries) do
         local sk = subKeyFor(entry, mode, getExpansion) or "other"
-        if not subs[sk] then subs[sk] = {} subSeen[#subSeen + 1] = sk end
-        subs[sk][#subs[sk] + 1] = entry
+        local sub = subs[sk]
+        if not sub then
+          sub = { key = sk, entries = {}, at = #subSeq + 1 }
+          subs[sk] = sub
+          subSeq[#subSeq + 1] = sub
+        end
+        sub.entries[#sub.entries + 1] = entry
       end
-      if #subSeen < 2 then
+      if #subSeq < 2 then
         sections[#sections + 1] = { key = mode .. ":" .. tostring(key), label = label, entries = main.entries }
       else
-        local subAt = {}
-        for i, sk in ipairs(subSeen) do subAt[sk] = i end
-        table.sort(subSeen, function(a, b)
-          local ra, rb = subRank[a] or 1e9, subRank[b] or 1e9
+        table.sort(subSeq, function(a, b)
+          local ra, rb = subRank[a.key] or 1e9, subRank[b.key] or 1e9
           if ra ~= rb then return ra < rb end
-          return subAt[a] < subAt[b]
+          return a.at < b.at
         end)
-        for _, sk in ipairs(subSeen) do
+        for _, sub in ipairs(subSeq) do
+          local sk = sub.key
           local suffix = ""
           if sk ~= "other" then
             local sl = subLabel(mode, sk)
@@ -248,7 +251,7 @@ function ui.buildSections(ranked, mode, getExpansion, filter, pins)
           sections[#sections + 1] = {
             key = mode .. ":" .. tostring(key) .. ":" .. tostring(sk),
             label = label .. suffix,
-            entries = subs[sk],
+            entries = sub.entries,
           }
         end
       end
@@ -1026,7 +1029,8 @@ function ui.depositKeeps(list)
   return n
 end
 
-function ui.destroyQueued(list)  local n, skipped, pending = 0, 0, false
+function ui.destroyQueued(list)
+  local n, skipped, pending = 0, 0, false
   list = list or lastQueued
   -- A held cursor item would be swapped into the first target slot by
   -- the pickup below; abort instead, like mover's cursor guard.
