@@ -338,6 +338,19 @@ do
 end
 
 do
+  local cns = loadConfig({
+    gatekeeper = "yes",
+    queue = { vendor = { [101] = { link = 42, n = 2 }, [102] = { link = "|Hitem:102|h[x]|h|r", n = 1 } } },
+  })
+  cns.config.init()
+  check("config repairs corrupt gatekeeper", cns.db.gatekeeper == true)
+  check("config drops ragged queue link, keeps the row",
+    cns.db.queue.vendor[101].link == nil and cns.db.queue.vendor[101].n == 2)
+  check("config keeps a well-formed queue link",
+    cns.db.queue.vendor[102].link == "|Hitem:102|h[x]|h|r")
+end
+
+do
   local cns = loadConfig({ source = "builtin" })
   cns.config.init()
   check("config migrates legacy source",

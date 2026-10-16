@@ -74,6 +74,8 @@ function config.init()
       for id, row in pairs(rows) do
         if type(row) ~= "table" or type(row.n) ~= "number" or row.n <= 0 then
           rows[id] = nil
+        elseif row.link ~= nil and type(row.link) ~= "string" then
+          row.link = nil -- a ragged link would break name rendering later
         end
       end
       if next(rows) == nil then d.queue[action] = nil end
@@ -84,7 +86,7 @@ function config.init()
   end
   if type(d.tsmKey) ~= "string" or d.tsmKey == "" then d.tsmKey = defaults.tsmKey end
   if type(d.enchanter) ~= "string" then d.enchanter = defaults.enchanter end
-  for _, k in ipairs({ "autoOpenVendor", "autoOpenAuction", "sortReverse" }) do
+  for _, k in ipairs({ "autoOpenVendor", "autoOpenAuction", "sortReverse", "gatekeeper" }) do
     if type(d[k]) ~= "boolean" then d[k] = defaults[k] end
   end
 end
