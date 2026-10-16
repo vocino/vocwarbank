@@ -1,6 +1,6 @@
 ## Interface: 120105
 ## Title: VocWarbank
-## Notes: Audit your warband bank, bank, and bags. Rank everything by usefulness, draw the line, clean house. (/vw)
+## Notes: Clean up your warband bank, bank, and bags. Ranks every item: keep, sell, disenchant, vendor, or destroy. (/vw)
 ## Author: vocino
 ## Version: @project-version@
 ## Category: Bags & Inventory
