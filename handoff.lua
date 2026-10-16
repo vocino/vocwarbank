@@ -171,6 +171,8 @@ function handoff.sell()
   local ready = currentResolved.ready
   if #ready == 0 then return end
   local n = ns.ui.vendorQueued(ready)
+  -- Nothing sold (the merchant closed under us): the queue stays whole.
+  if n <= 0 then handoff.refresh() return end
   local left = ns.queue.prune(currentAction, ready)
   if left == 0 then handoff.hide()
   else handoff.refresh() end

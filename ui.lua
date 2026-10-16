@@ -1028,6 +1028,12 @@ end
 
 function ui.destroyQueued(list)  local n, skipped, pending = 0, 0, false
   list = list or lastQueued
+  -- A held cursor item would be swapped into the first target slot by
+  -- the pickup below; abort instead, like mover's cursor guard.
+  if type(GetCursorInfo) == "function" and GetCursorInfo() ~= nil then
+    ns.say("put down what you are holding first")
+    return 0
+  end
   for _, entry in ipairs(list) do
     if entry.verdict == "destroy" then
       local item = entry.item
