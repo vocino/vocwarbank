@@ -113,6 +113,9 @@ local function note(text)
   if type(CreateSettingsListSectionHeaderInitializer) ~= "function" then return end
   if not (SettingsPanel and type(SettingsPanel.GetLayout) == "function") then return end
   pcall(function()
+    -- GetLayout takes the category in Blizzard's own code
+    -- (Blizzard_SettingsPanel.lua); the stub signature is short an argument.
+    ---@diagnostic disable-next-line: redundant-parameter
     local layout = SettingsPanel:GetLayout(category)
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(text))
   end)
