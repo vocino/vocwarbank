@@ -178,13 +178,13 @@ function ui.buildSections(ranked, mode, getExpansion, filter, pins)
     return rank[key] or 1e8
   end
   -- Buckets in first-seen order; at breaks rank ties deterministically.
-  local buckets, order = {}, {}
+  local buckets, seq = {}, {}
   local function bucket(key)
     local b = buckets[key]
     if not b then
-      b = { key = key, entries = {}, at = #order + 1 }
+      b = { key = key, entries = {}, at = #seq + 1 }
       buckets[key] = b
-      order[#order + 1] = b
+      seq[#seq + 1] = b
     end
     return b
   end
@@ -199,7 +199,7 @@ function ui.buildSections(ranked, mode, getExpansion, filter, pins)
       b.entries[#b.entries + 1] = entry
     end
   end
-  table.sort(order, function(a, b)
+  table.sort(seq, function(a, b)
     local ra, rb = sortKey(a.key), sortKey(b.key)
     if ra ~= rb then return ra < rb end
     return a.at < b.at
@@ -208,7 +208,7 @@ function ui.buildSections(ranked, mode, getExpansion, filter, pins)
   local subRank = {}
   for i, key in ipairs(subOrder) do subRank[key] = i end
   local sections = {}
-  for _, main in ipairs(order) do
+  for _, main in ipairs(seq) do
     local key = main.key
     local label
     if key == "pinned:never" then label = "Never Sell"
