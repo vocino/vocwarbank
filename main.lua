@@ -31,7 +31,7 @@ end
 -- (addonName, button). The click does what the bare slash does (open
 -- or close the window); hover follows the tooltip contract: gold
 -- title, one line, the slash hint.
-function VocWarbank_CompartmentClick()
+function VocWarbank_CompartmentClick(_, _)
   ns.ui.toggle()
 end
 
@@ -47,7 +47,7 @@ function VocWarbank_CompartmentEnter(_, button)
   GameTooltip:Show()
 end
 
-function VocWarbank_CompartmentLeave()
+function VocWarbank_CompartmentLeave(_, _)
   if type(GameTooltip) == "table" then GameTooltip:Hide() end
 end
 

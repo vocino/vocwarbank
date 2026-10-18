@@ -118,6 +118,8 @@ end
 ui.SORT_LABEL = { off = "Bag order", quality = "Quality", value = "Value", name = "Name" }
 ui.SORT_MODES = { "off", "quality", "value", "name" }
 
+---@param nameLower string
+---@param query string
 function ui.searchMatch(nameLower, query)
   return query == "" or (nameLower and nameLower:find(query, 1, true) ~= nil)
 end
@@ -1085,6 +1087,7 @@ function ui.toggleKey(key)
   render(lastRanked)
 end
 
+---@param entries table?
 function ui.toggleSection(entries)
   if not entries or #entries == 0 then return end
   local all = true
@@ -1399,9 +1402,13 @@ function ui.init()
       b = buildDisenchantButton(y)
     else
       b = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
+      -- The disenchant row builds its own button above, so every row
+      -- reaching here carries a handler the checker cannot see.
+      ---@type fun()
+      local handler = def[2]
       b:SetSize(SIDE_W, 22)
       b:SetPoint("TOPLEFT", window, "TOPLEFT", SIDE_X, -y)
-      b:SetScript("OnClick", def[2])
+      b:SetScript("OnClick", handler)
       if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
       ns.theme.styleButton(b)
       ui.confirm(b)
