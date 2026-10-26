@@ -246,6 +246,11 @@ end
 -- no completed set, no tooltip, no match -> keep.
 local questTip, completedTitles
 
+-- Per-link memo for tooltip parses: a link's quest title cannot change,
+-- so repeated sightings across ranks skip the GameTooltip round trip.
+-- Only successful parses memoize; the completed-title set stays live.
+local questTitleCache = {}
+
 local function buildCompletedTitles()
   completedTitles = {}
   local ql = C_QuestLog
@@ -262,10 +267,12 @@ end
 -- the next rank rebuilds it. Called from the QUEST_TURNED_IN handler.
 function ranking.refreshQuests()
   completedTitles = nil
+  questTitleCache = {}
 end
 
 local function questTitleFromLink(link)
   if not link then return nil end
+  if questTitleCache[link] then return questTitleCache[link] end
   if not questTip then
     questTip = CreateFrame("GameTooltip", "VocWarbankQuestTip", UIParent, "GameTooltipTemplate")
   end
@@ -275,7 +282,10 @@ local function questTitleFromLink(link)
   for i = 2, questTip:NumLines() do
     local line = _G["VocWarbankQuestTipTextLeft" .. i]
     local text = line and line:GetText()
-    if text and text ~= "" and completedTitles[text] then return text end
+    if text and text ~= "" and completedTitles[text] then
+      questTitleCache[link] = text
+      return text
+    end
   end
   return nil
 end

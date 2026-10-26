@@ -4,8 +4,10 @@ ns.providers = providers
 
 -- Price sources. Each entry is { label, available(), fetch(link, itemID) }.
 -- External calls are presence-gated and pcall-guarded: a broken or
--- missing pricing addon must never break a scan. Availability is
--- checked live on every lookup, so late-loading addons just work.
+-- missing pricing addon must never break a scan. Availability snapshots
+-- once per rank and rescan (see providers.get): a guest loading
+-- mid-session appears on the next rank, and settings still apply live
+-- because chain() re-reads the price source every snapshot.
 local registry = {}
 
 local function safeFetch(entry, link, itemID)
@@ -90,9 +92,9 @@ local function chain()
   return AUTO_ORDER
 end
 
-function providers.getPrice(link, itemID)
+local function getPriceWithKeys(link, itemID, keys)
   itemID = parseItemID(link, itemID)
-  for _, key in ipairs(chain()) do
+  for _, key in ipairs(keys) do
     local entry = registry[key]
     if entry and entry.available() then
       local price = safeFetch(entry, link, itemID)
@@ -100,6 +102,10 @@ function providers.getPrice(link, itemID)
     end
   end
   return nil, nil
+end
+
+function providers.getPrice(link, itemID)
+  return getPriceWithKeys(link, itemID, chain())
 end
 
 function providers.describe()
@@ -129,13 +135,29 @@ end
 
 -- Composite provider behind the stable two-function contract.
 local composite = {}
+-- Snapshot of the effective chain with live availability, refreshed by
+-- providers.get() once per rank and rescan (below). Defaults to the
+-- full auto order so the composite works before the first snapshot.
+local snapshotKeys = AUTO_ORDER
+
 function composite.GetMarketValue(link)
-  local price = providers.getPrice(link, nil)
+  local price = getPriceWithKeys(link, nil, snapshotKeys)
   return price
 end
 composite.GetExpansion = getExpansion
 
-function providers.get() return composite end
+function providers.get()
+  -- Snapshot once per rank and rescan: per-item lookups below reuse the
+  -- effective chain instead of re-reading the price-source setting and
+  -- re-probing every guest per item.
+  local keys = {}
+  for _, key in ipairs(chain()) do
+    local entry = registry[key]
+    if entry and entry.available() then keys[#keys + 1] = key end
+  end
+  snapshotKeys = keys
+  return composite
+end
 
 function providers.init()
   ns.activeSource = providers.describe()
