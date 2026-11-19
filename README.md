@@ -1,5 +1,7 @@
 # VocWarbank
 
+I make these addons for myself. You might find them useful too.
+
 VocWarbank keeps your bank current. Years of expansions leave a
 mishmash in the warbank: old reagents, dead quest items, gear with no
 purpose. The cleanout loop fixes it: Empty withdraws the bank into
